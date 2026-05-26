@@ -371,10 +371,7 @@ void channelMove(uint16_t Channel)
     const uint8_t Vfo = gEeprom.TX_VFO;
 
     if (!RADIO_CheckValidChannel(Channel, false, 0)) {
-        if (gKeyInputCountdown <= 1) {
-            gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
-        }
-
+        gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
         return;
     }
 
@@ -548,7 +545,8 @@ static void MAIN_Key_DIGITS(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
         if (IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE)) { // user is entering channel number
 
-            gKeyInputCountdown = (key_input_timeout_500ms / 4); // short time...
+            // If all 3 digits entered (valid or invalid), revert quickly; otherwise wait for more digits
+            gKeyInputCountdown = (gInputBoxIndex >= 3) ? 1 : (key_input_timeout_500ms / 4);
 
             #ifdef ENABLE_VOICE
                 gAnotherVoiceID   = (VOICE_ID_t)Key;

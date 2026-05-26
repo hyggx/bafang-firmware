@@ -314,7 +314,7 @@ const t_menu_item MenuList[] =
     {"SetNFM",      MENU_SET_NFM       },
 #endif
 #ifdef ENABLE_FEAT_F4HWN_VOL
-    {"SetVol",      MENU_SET_VOL       },
+    {"SetRxGn",     MENU_SET_VOL       },
 #endif
 #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
     {"SetKey",      MENU_SET_KEY       },
@@ -1316,11 +1316,9 @@ void UI_DisplayMenu(void)
             }
 
             if (page == p++) {
-                char val[16];
+                char val[24];
 
-                strcpy(top_right_badge, "BATTERY");
-
-                sprintf(val, "%u.%02uV %u%%",
+                sprintf(val, "%u.%02uV  %u%%",
                     gBatteryVoltageAverage / 100, gBatteryVoltageAverage % 100,
                     BATTERY_VoltsToPercent(gBatteryVoltageAverage));
                 UI_PrintStringSmallNormal(val, 0, menu_item_x2, 3);
