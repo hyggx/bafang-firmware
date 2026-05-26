@@ -44,6 +44,10 @@ extern const uint8_t BITMAP_compand[6];
 
 extern const uint8_t BITMAP_NOAA[12];
 
+#ifdef ENABLE_VOICE
+    extern const uint8_t BITMAP_VoicePrompt[7];
+#endif
+
 #ifndef ENABLE_CUSTOM_MENU_LAYOUT
     extern const uint8_t BITMAP_CurrentIndicator[8];
 #endif

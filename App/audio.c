@@ -248,81 +248,65 @@ static void LoadVoiceSamples()
 
 void AUDIO_PlaySingleVoice(bool bFlag)
 {
-    uint8_t VoiceID;
-    uint8_t Delay;
+    uint8_t VoiceID = gVoiceID[0];
 
-    VoiceID = gVoiceID[0];
+    if (gEeprom.VOICE_PROMPT == VOICE_PROMPT_OFF || gVoiceWriteIndex == 0)
+        goto Bailout;
 
-    if (gEeprom.VOICE_PROMPT != VOICE_PROMPT_OFF && gVoiceWriteIndex > 0)
+    if (!LoadVoiceClip(VoiceID))
+        goto Bailout;
+
+    uint32_t Delay = CalcDelay(VoiceClipState.Size);
+
+    if (FUNCTION_IsRx())
+        BK4819_SetAF(BK4819_AF_MUTE);
+
+    #ifdef ENABLE_FMRADIO
+        if (gFmRadioMode)
+            BK1080_Mute(true);
+    #endif
+
+    AUDIO_AudioPathOn();
+
+    #ifdef ENABLE_VOX
+        gVoxResumeCountdown = 2000;
+    #endif
+
+    SYSTEM_DelayMs(5);
+    LoadVoiceSamples();
+    VOICE_Start();
+
+    if (bFlag)
     {
-        if (gEeprom.VOICE_PROMPT == VOICE_PROMPT_CHINESE)
-        {   // Chinese
-            if (VoiceID >= ARRAY_SIZE(VoiceClipLengthChinese))
-                goto Bailout;
+        SYSTEM_DelayMs(Delay);
+        VOICE_Stop();
 
-            Delay    = VoiceClipLengthChinese[VoiceID];
-            VoiceID += VOICE_ID_CHI_BASE;
-        }
-        else
-        {   // English
-            if (VoiceID >= ARRAY_SIZE(VoiceClipLengthEnglish))
-                goto Bailout;
-
-            Delay    = VoiceClipLengthEnglish[VoiceID];
-            VoiceID += VOICE_ID_ENG_BASE;
-        }
-
-        if (FUNCTION_IsRx())   // 1of11
-            BK4819_SetAF(BK4819_AF_MUTE);
+        if (FUNCTION_IsRx())
+            RADIO_SetModulation(gRxVfo->Modulation);
 
         #ifdef ENABLE_FMRADIO
             if (gFmRadioMode)
-                BK1080_Mute(true);
+                BK1080_Mute(false);
         #endif
 
-        AUDIO_AudioPathOn();
+        if (!gEnableSpeaker)
+            AUDIO_AudioPathOff();
+
+        gVoiceWriteIndex    = 0;
+        gVoiceReadIndex     = 0;
 
         #ifdef ENABLE_VOX
-            gVoxResumeCountdown = 2000;
+            gVoxResumeCountdown = 80;
         #endif
-
-        SYSTEM_DelayMs(5);
-        AUDIO_PlayVoice(VoiceID);
-
-        if (gVoiceWriteIndex == 1)
-            Delay += 3;
-
-        if (bFlag)
-        {
-            SYSTEM_DelayMs(Delay * 10);
-
-            if (FUNCTION_IsRx())    // 1of11
-                RADIO_SetModulation(gRxVfo->Modulation);
-
-            #ifdef ENABLE_FMRADIO
-                if (gFmRadioMode)
-                    BK1080_Mute(false);
-            #endif
-
-            if (!gEnableSpeaker)
-                AUDIO_AudioPathOff();
-
-            gVoiceWriteIndex    = 0;
-            gVoiceReadIndex     = 0;
-
-            #ifdef ENABLE_VOX
-                gVoxResumeCountdown = 80;
-            #endif
-
-            return;
-        }
-
-        gVoiceReadIndex                = 1;
-        gCountdownToPlayNextVoice_10ms = Delay;
-        gFlagPlayQueuedVoice           = false;
 
         return;
     }
+
+    gVoiceReadIndex                = 1;
+    gCountdownToPlayNextVoice_10ms = Delay / 10;
+    gFlagPlayQueuedVoice           = false;
+
+    return;
 
 Bailout:
     gVoiceReadIndex  = 0;
@@ -387,42 +371,18 @@ void AUDIO_PlayQueuedVoice(void)
 {
     uint8_t VoiceID;
     uint8_t Delay;
-    bool    Skip;
-
-    Skip = false;
 
     if (gVoiceReadIndex != gVoiceWriteIndex && gEeprom.VOICE_PROMPT != VOICE_PROMPT_OFF)
     {
         VoiceID = gVoiceID[gVoiceReadIndex];
-        if (gEeprom.VOICE_PROMPT == VOICE_PROMPT_CHINESE)
-        {
-            if (VoiceID < ARRAY_SIZE(VoiceClipLengthChinese))
-            {
-                Delay = VoiceClipLengthChinese[VoiceID];
-                VoiceID += VOICE_ID_CHI_BASE;
-            }
-            else
-                Skip = true;
-        }
-        else
-        {
-            if (VoiceID < ARRAY_SIZE(VoiceClipLengthEnglish))
-            {
-                Delay = VoiceClipLengthEnglish[VoiceID];
-                VoiceID += VOICE_ID_ENG_BASE;
-            }
-            else
-                Skip = true;
-        }
-
         gVoiceReadIndex++;
 
-        if (!Skip)
+        if (LoadVoiceClip(VoiceID))
         {
-            if (gVoiceReadIndex == gVoiceWriteIndex)
-                Delay += 3;
+            Delay = (uint8_t)(CalcDelay(VoiceClipState.Size) / 10);
 
-            AUDIO_PlayVoice(VoiceID);
+            LoadVoiceSamples();
+            VOICE_Start();
 
             gCountdownToPlayNextVoice_10ms = Delay;
             gFlagPlayQueuedVoice           = false;

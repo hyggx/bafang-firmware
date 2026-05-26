@@ -1828,10 +1828,6 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
     {
         const int m = UI_MENU_GetCurrentMenuId();
 
-        #ifdef ENABLE_VOICE
-            if (m != MENU_SCR)
-                gAnotherVoiceID = MenuList[gMenuCursor].voice_id;
-        #endif
         if (m == MENU_UPCODE 
             || m == MENU_DWCODE 
 #ifdef ENABLE_DTMF_CALLING 
@@ -1959,10 +1955,12 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
     SCANNER_Stop();
 
     #ifdef ENABLE_VOICE
-        if (UI_MENU_GetCurrentMenuId() == MENU_SCR)
-            gAnotherVoiceID = (gSubMenuSelection == 0) ? VOICE_ID_SCRAMBLER_OFF : VOICE_ID_SCRAMBLER_ON;
-        else
-            gAnotherVoiceID = VOICE_ID_CONFIRM;
+        #ifndef ENABLE_FEAT_F4HWN
+            if (UI_MENU_GetCurrentMenuId() == MENU_SCR)
+                gAnotherVoiceID = (gSubMenuSelection == 0) ? VOICE_ID_SCRAMBLER_OFF : VOICE_ID_SCRAMBLER_ON;
+            else
+        #endif
+                gAnotherVoiceID = VOICE_ID_CONFIRM;
     #endif
 
     gInputBoxIndex = 0;

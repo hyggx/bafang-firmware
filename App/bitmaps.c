@@ -298,3 +298,10 @@ const uint8_t BITMAP_CurrentIndicator[8] = {
     0x18
 };
 #endif
+
+#ifdef ENABLE_VOICE
+// Speaker / voice-prompt indicator (8px tall, column-major)
+const uint8_t BITMAP_VoicePrompt[7] = {
+    0x18, 0x18, 0x7E, 0x7E, 0x18, 0x18, 0x00
+};
+#endif
