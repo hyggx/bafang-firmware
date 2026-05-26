@@ -545,8 +545,11 @@ static void MAIN_Key_DIGITS(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
         if (IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE)) { // user is entering channel number
 
-            // If all 3 digits entered (valid or invalid), revert quickly; otherwise wait for more digits
-            gKeyInputCountdown = (gInputBoxIndex >= 3) ? 1 : (key_input_timeout_500ms / 4);
+            if (gInputBoxIndex >= 3) {
+                gInputBoxIndex = 0;  // immediately clear input (haige style: don't display 3rd digit)
+            } else {
+                gKeyInputCountdown = key_input_timeout_500ms / 4;
+            }
 
             #ifdef ENABLE_VOICE
                 gAnotherVoiceID   = (VOICE_ID_t)Key;
