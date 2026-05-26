@@ -27,7 +27,7 @@
     #ifdef ENABLE_AM_FIX_SHOW_DATA
         void AM_fix_print_data(const unsigned vfo, char *s);
     #endif
-    int8_t AM_fix_get_gain_diff();
+    int8_t AM_fix_get_gain_diff(unsigned vfo);
     void AM_fix_enable(bool on);
 
 #endif

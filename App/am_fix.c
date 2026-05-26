@@ -221,16 +221,25 @@ unsigned int gain_table_index_prev[2] = {0, 0};
 int16_t prev_rssi[2] = {0, 0};
 // to help reduce gain hunting, peak hold count down tick
 unsigned int hold_counter[2] = {0, 0};
-// -89dBm, any higher and the AM demodulator starts to saturate/clip/distort
+// Target RF level at the BK4819 AM demodulator input (-89 dBm).
+// Above this level the AM demodulator starts to saturate/clip/distort.
+// Note: haige-firmware uses -95 dBm to leave 6 dB headroom for 100% AM
+// modulation peaks, but that is a tuning trade-off, not a bug.  Keeping
+// -89 dBm here until hardware measurements confirm the better value.
 const int16_t desired_rssi = (-89 + 160) * 2;
 
-int8_t currentGainDiff;
+int8_t currentGainDiff[2];  // per-VFO gain compensation (index 0 = VFO A, 1 = VFO B)
 bool enabled = true;
 
 void AM_fix_init(void)
 {   // called at boot-up
     for (int i = 0; i < 2; i++) {
-        gain_table_index[i] = 0;  // re-start with original QS setting
+        // BUG FIX: starting at index 0 (the isolated "original" entry at -7 dB)
+        // then stepping to index 1 on a weak signal causes an 86 dB gain drop
+        // before the ramp-up begins (index 0 → 1 = -93 dB).  Start at maximum
+        // gain so weak signals are immediately receivable; the control loop
+        // reduces gain on the very first tick if the signal is strong.
+        gain_table_index[i] = gain_table_size - 1u;  // FIX: start at max gain (0 dB)
     }
 #if !LOOKUP_TABLE
     CreateTable();
@@ -249,6 +258,11 @@ void AM_fix_reset(const unsigned vfo)
     prev_rssi[vfo] = 0;
     hold_counter[vfo] = 0;
     gain_table_index_prev[vfo] = 0;
+    // BUG FIX: AM_fix_init() starts at max gain but reset() did not; after
+    // tuning away from a strong signal the index was left at a low-gain
+    // position, causing a slow (≈400 ms) ramp-up on the new channel.
+    // Reset to max gain so AGC can attenuate immediately if the new signal is strong.
+    gain_table_index[vfo] = gain_table_size - 1u;
 }
 
 // adjust the RX gain to try and prevent the AM demodulator from
@@ -286,11 +300,19 @@ void AM_fix_10ms(const unsigned vfo)
     }
 
     int16_t rssi;
-    {   // sample the current RSSI level
-        // average it with the previous rssi (a bit of noise/spike immunity)
+    {   // Sample RSSI and smooth it with a first-order IIR low-pass filter (α=0.25).
+        // BUG FIX: upstream used a 2-tap FIR average (stored raw new_rssi as prev).
+        // IIR gives better spike rejection: a single-sample noise spike is attenuated
+        // to 25% instead of 50%.  Time constant ≈ 3 ticks = 30 ms.
+        // prev_rssi now stores the *smoothed* value (not the raw reading).
         const int16_t new_rssi = BK4819_GetRSSI();
-        rssi                   = (prev_rssi[vfo] > 0) ? (prev_rssi[vfo] + new_rssi) / 2 : new_rssi;
-        prev_rssi[vfo]         = new_rssi;
+        if (prev_rssi[vfo] == 0) {      // first sample after reset: seed the filter
+            rssi           = new_rssi;
+            prev_rssi[vfo] = new_rssi;
+        } else {
+            rssi           = prev_rssi[vfo] + ((new_rssi - prev_rssi[vfo]) >> 2);
+            prev_rssi[vfo] = rssi;      // store smoothed value for next tick
+        }
     }
 
 #ifdef ENABLE_AM_FIX_SHOW_DATA
@@ -360,7 +382,11 @@ void AM_fix_10ms(const unsigned vfo)
 
         // remember the new table index
         gain_table_index_prev[vfo] = index;
-        currentGainDiff = gain_table[0].gain_dB - gain_table[index].gain_dB;
+        // BUG FIX: upstream used gain_table[0].gain_dB (-7 dB) as reference,
+        // introducing a constant -7 dB error when AM Fix is at full gain.
+        // Correct reference is 0 dB (full gain = no attenuation).
+        // currentGainDiff = 0 at max gain; = +N when gain is reduced by N dB.
+        currentGainDiff[vfo] = -(int8_t)gain_table[index].gain_dB;
         BK4819_WriteRegister(BK4819_REG_13, gain_table[index].reg_val);
 #ifdef ENABLE_AGC_SHOW_DATA
         UI_MAIN_PrintAGC(true);
@@ -385,9 +411,9 @@ void AM_fix_print_data(const unsigned vfo, char *s) {
 }
 #endif
 
-int8_t AM_fix_get_gain_diff()
+int8_t AM_fix_get_gain_diff(unsigned vfo)
 {
-    return currentGainDiff;
+    return currentGainDiff[vfo < 2u ? vfo : 0u];
 }
 
 void AM_fix_enable(bool on)
