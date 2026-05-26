@@ -144,8 +144,8 @@ static_assert(ARRAY_SIZE(action_opt_table) == ACTION_OPT_LEN);
 
 void ACTION_Power(void)
 {
-    if (++gTxVfo->OUTPUT_POWER > OUTPUT_POWER_HIGH)
-        gTxVfo->OUTPUT_POWER = OUTPUT_POWER_LOW1;
+    if (++gTxVfo->OUTPUT_POWER > OUTPUT_POWER_TURBO)
+        gTxVfo->OUTPUT_POWER = OUTPUT_POWER_LOW;
 
     // Use mode 2 so that MR (memory) channels get their full data written to
     // EEPROM; mode 1 skips the write for non-freq channels, causing the power
@@ -636,8 +636,7 @@ void ACTION_BackLightOnDemand(void)
     if(gBackLight == false)
     {
         gBacklightTimeOriginal = gEeprom.BACKLIGHT_TIME;
-        gEeprom.BACKLIGHT_TIME = 61;
-        gBackLight = true;
+        gEeprom.BACKLIGHT_TIME = 7;
     }
     else
     {
@@ -647,7 +646,7 @@ void ACTION_BackLightOnDemand(void)
         }
         else
         {
-            gEeprom.BACKLIGHT_TIME = 61;
+            gEeprom.BACKLIGHT_TIME = 7;
         }
     }
     

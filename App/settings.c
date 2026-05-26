@@ -191,7 +191,7 @@ void SETTINGS_InitEEPROM(void)
     gEeprom.CROSS_BAND_RX_TX      = (Data[2] < 3) ? Data[2] : CROSS_BAND_OFF;
     gEeprom.BATTERY_SAVE          = (Data[3] < 6) ? Data[3] : 4;
     gEeprom.DUAL_WATCH            = (Data[4] < 3) ? Data[4] : DUAL_WATCH_CHAN_A;
-    gEeprom.BACKLIGHT_TIME        = (Data[5] < 62) ? Data[5] : 12;
+    gEeprom.BACKLIGHT_TIME        = (Data[5] < 8) ? Data[5] : 3;
     #ifdef ENABLE_FEAT_F4HWN_NARROWER
         gEeprom.TAIL_TONE_ELIMINATION = Data[6] & 0x01;
         gSetting_set_nfm = (Data[6] >> 1) & 0x01;
@@ -475,7 +475,6 @@ gEeprom.FreqChannel[1]   = IS_FREQ_CHANNEL(Data16[5]) ? Data16[5] : (FREQ_CHANNE
         // TODO: address TBD
         PY25Q16_ReadBuffer(0x00A158, Data, 8);
         const uint8_t set_ptt_scn = Data[7] & 0x0F;
-        gSetting_set_pwr = (((Data[7] & 0xF0) >> 4) < 7) ? ((Data[7] & 0xF0) >> 4) : 0;
         gSetting_set_ptt = (set_ptt_scn < 4) ? (set_ptt_scn & 0x01) : 0;
 #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
         gSetting_set_scn = (set_ptt_scn < 4) ? ((set_ptt_scn & 0x02) == 0) : 1;
@@ -503,7 +502,6 @@ gEeprom.FreqChannel[1]   = IS_FREQ_CHANNEL(Data16[5]) ? Data16[5] : (FREQ_CHANNE
 #else
         gSetting_set_inv = 0;
 #endif
-        gSetting_set_lck = (tmp >> 1) & 0x01;
         gSetting_set_met = (tmp >> 2) & 0x01;
         gSetting_set_gui = (tmp >> 3) & 0x01;
 
@@ -521,7 +519,7 @@ gEeprom.FreqChannel[1]   = IS_FREQ_CHANNEL(Data16[5]) ? Data16[5] : (FREQ_CHANNE
 
         // And set special session settings for actions
         gSetting_set_ptt_session = gSetting_set_ptt;
-        gEeprom.KEY_LOCK_PTT = gSetting_set_lck;
+        gEeprom.KEY_LOCK_PTT = false;
     #endif
 
     // LINGBO_EXT: language preference
@@ -694,7 +692,7 @@ bool SETTINGS_FetchChannelScanDisplayInfo(const uint16_t channel, ChannelScanDis
     {
         info->frequencyReverse = false;
         info->channelBandwidth = BANDWIDTH_WIDE;
-        info->outputPower      = OUTPUT_POWER_LOW1;
+        info->outputPower      = OUTPUT_POWER_LOW;
         info->busyChannelLock  = false;
         info->txLock           = true;
     }
@@ -703,7 +701,7 @@ bool SETTINGS_FetchChannelScanDisplayInfo(const uint16_t channel, ChannelScanDis
         const uint8_t d4 = raw.data[4];
         info->frequencyReverse = !!((d4 >> 0) & 1u);
         info->channelBandwidth = !!((d4 >> 1) & 1u);
-        info->outputPower      =   ((d4 >> 2) & 7u);
+        info->outputPower      =   ((d4 >> 2) & 3u);
         info->busyChannelLock  = !!((d4 >> 5) & 1u);
         info->txLock           = !!((d4 >> 6) & 1u);
     }
@@ -1167,7 +1165,6 @@ void SETTINGS_SaveSettings(void)
 #endif
 
     tmp =   (gSetting_set_inv << 0) |
-            (gSetting_set_lck << 1) |
             (gSetting_set_met << 2) |
             (gSetting_set_gui << 3);
 
@@ -1179,9 +1176,9 @@ void SETTINGS_SaveSettings(void)
         set_ptt_scn |= 0x02;
 #endif
 
-    State[7] = ((gSetting_set_pwr << 4) | set_ptt_scn);
+    State[7] = set_ptt_scn;
 
-    gEeprom.KEY_LOCK_PTT = gSetting_set_lck;
+    gEeprom.KEY_LOCK_PTT = false;
 
     PY25Q16_WriteBuffer(0x00A158, SecBuf, 8, false);
 #endif

@@ -92,7 +92,6 @@ typedef enum {
     STR_MENU_SCREN,         /* ScrEn      / 频谱开关 */
     STR_MENU_F_CALI,        /* FCali      / 频率校准 */
     STR_MENU_SET_OFF,       /* SetOff     / 关机定时 */
-    STR_MENU_SET_PWR,       /* SetPwr     / 功率设置 */
     STR_MENU_SET_PTT,       /* SetPTT     / PTT设置  */
     STR_MENU_SET_TOT,       /* SetTOT     / 超时设置 */
     STR_MENU_SET_EOT,       /* SetEOT     / 结束超时 */

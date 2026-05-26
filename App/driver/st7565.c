@@ -313,15 +313,17 @@ uint8_t cmds[] = {
     //#if !defined(ENABLE_SPECTRUM) || !defined(ENABLE_FMRADIO)
     void ST7565_Gauge(uint8_t line, uint8_t min, uint8_t max, uint8_t value)
     {
-        gFrameBuffer[line][54] = 0x0c;
-        gFrameBuffer[line][55] = 0x12;
+        // Gauge bar centred in the 128-column display.
+        // Total width = 69 columns (29-97); inner fill = 65 columns (31-95).
+        gFrameBuffer[line][29] = 0x0c;
+        gFrameBuffer[line][30] = 0x12;
 
-        gFrameBuffer[line][121] = 0x12;
-        gFrameBuffer[line][122] = 0x0c;
+        gFrameBuffer[line][96] = 0x12;
+        gFrameBuffer[line][97] = 0x0c;
 
-        uint8_t filled = map(value, min, max, 56, 120);
+        uint8_t filled = map(value, min, max, 31, 95);
 
-        for (uint8_t i = 56; i <= 120; i++) {
+        for (uint8_t i = 31; i <= 95; i++) {
             gFrameBuffer[line][i] = (i <= filled) ? 0x2d : 0x21;
         }
     }

@@ -218,7 +218,7 @@ void RADIO_InitInfo(VFO_Info_t *pInfo, const uint16_t ChannelSave, const uint32_
     pInfo->CHANNEL_SAVE             = ChannelSave;
     pInfo->FrequencyReverse         = false;
     pInfo->TX_LOCK                  = true;
-    pInfo->OUTPUT_POWER             = OUTPUT_POWER_LOW1;
+    pInfo->OUTPUT_POWER             = OUTPUT_POWER_LOW;
     pInfo->freq_config_RX.Frequency = Frequency;
     pInfo->freq_config_TX.Frequency = Frequency;
     pInfo->pRX                      = &pInfo->freq_config_RX;
@@ -376,7 +376,7 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
         {
             pVfo->FrequencyReverse  = false;
             pVfo->CHANNEL_BANDWIDTH = BK4819_FILTER_BW_WIDE;
-            pVfo->OUTPUT_POWER      = OUTPUT_POWER_LOW1;
+            pVfo->OUTPUT_POWER      = OUTPUT_POWER_LOW;
             pVfo->BUSY_CHANNEL_LOCK = false;
             pVfo->TX_LOCK = true;
         }
@@ -579,13 +579,10 @@ void RADIO_ConfigureSquelchAndOutputPower(VFO_Info_t *pInfo)
     //      32 32 32 64 64 64 94 8c 8c ff ff ff ff ff ff ff 470 MHz
 
     uint8_t Txp[3];
-    uint8_t Op = 0; // Low eeprom calibration data 
-    uint8_t currentPower = pInfo->OUTPUT_POWER;
-
-    if (currentPower == OUTPUT_POWER_USER)
-        currentPower = gSetting_set_pwr;
-    else
-        currentPower--;
+    uint8_t Op = 0; // Low eeprom calibration data
+    // Map 4-level index (0=0.5W,1=1W,2=2W,3=5W) to internal calibration index (3,4,5,6)
+    static const uint8_t pwr_map[4] = {3, 4, 5, 6};
+    uint8_t currentPower = pwr_map[pInfo->OUTPUT_POWER < 4 ? pInfo->OUTPUT_POWER : 0];
 
     if (currentPower == 5)
         Op = 1; // Mid eeprom calibration data

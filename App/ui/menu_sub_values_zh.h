@@ -44,7 +44,6 @@ extern const char * const gSubMenu_SCRAMBLER_zh[];
 #ifdef ENABLE_FEAT_F4HWN
 extern const char * const gSubMenu_SET_PTT_zh[];
 extern const char * const gSubMenu_SET_TOT_zh[];
-extern const char * const gSubMenu_SET_LCK_zh[];
 extern const char * const gSubMenu_SET_MET_zh[];
 #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
 extern const char * const gSubMenu_SET_SCN_zh[];

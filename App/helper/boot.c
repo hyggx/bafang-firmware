@@ -100,7 +100,7 @@ void BOOT_ProcessMode(BOOT_Mode_t Mode)
             RADIO_InitInfo(gRxVfo, FREQ_CHANNEL_LAST - 1, DEFAULT_FREQ); // LPD
 
             gRxVfo->CHANNEL_BANDWIDTH        = BANDWIDTH_NARROW;
-            gRxVfo->OUTPUT_POWER             = OUTPUT_POWER_LOW1;
+            gRxVfo->OUTPUT_POWER             = OUTPUT_POWER_LOW;
 
             RADIO_ConfigureSquelchAndOutputPower(gRxVfo);
 
@@ -112,7 +112,7 @@ void BOOT_ProcessMode(BOOT_Mode_t Mode)
 
             gAircopyState = AIRCOPY_READY;
 
-            gEeprom.BACKLIGHT_TIME = 61;
+            gEeprom.BACKLIGHT_TIME = 7;
             gEeprom.KEY_LOCK = 0;
 
             #ifdef ENABLE_FEAT_F4HWN_RESUME_STATE

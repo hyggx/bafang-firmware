@@ -126,7 +126,7 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 
         case MENU_ABR:
             //*pMin = 0;
-            *pMax = 61;
+            *pMax = 7;
             break;
 
         case MENU_ABR_MIN:
@@ -397,9 +397,6 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 #endif
 
 #ifdef ENABLE_FEAT_F4HWN
-        case MENU_SET_PWR:
-            *pMax = ARRAY_SIZE(gSubMenu_SET_PWR) - 1;
-            break;
         case MENU_SET_PTT:
             //*pMin = 0;
             *pMax = ARRAY_SIZE(gSubMenu_SET_PTT) - 1;
@@ -422,10 +419,6 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
             *pMax = ARRAY_SIZE(gSubMenu_OFF_ON) - 1;
             break;
         #endif
-        case MENU_SET_LCK:
-            //*pMin = 0;
-            *pMax = ARRAY_SIZE(gSubMenu_SET_LCK) - 1;
-            break;
         case MENU_SET_MET:
         case MENU_SET_GUI:
             //*pMin = 0;
@@ -975,10 +968,6 @@ void MENU_AcceptSetting(void)
 #endif
 
 #ifdef ENABLE_FEAT_F4HWN
-        case MENU_SET_PWR:
-            gSetting_set_pwr = gSubMenuSelection;
-            gRequestSaveChannel = 1;
-            break;
         case MENU_SET_PTT:
             gSetting_set_ptt = gSubMenuSelection;
             gSetting_set_ptt_session = gSetting_set_ptt; // Special for action
@@ -994,12 +983,6 @@ void MENU_AcceptSetting(void)
             gSetting_set_ctr = gSubMenuSelection;
             break;
         #endif
-        case MENU_SET_INV:
-            gSetting_set_inv = gSubMenuSelection;
-            break;
-        case MENU_SET_LCK:
-            gSetting_set_lck = gSubMenuSelection;
-            break;
         case MENU_SET_MET:
             gSetting_set_met = gSubMenuSelection;
             break;
@@ -1450,9 +1433,6 @@ void MENU_ShowCurrentSetting(void)
 #endif
 
 #ifdef ENABLE_FEAT_F4HWN
-        case MENU_SET_PWR:
-            gSubMenuSelection = gSetting_set_pwr;
-            break;
         case MENU_SET_PTT:
             gSubMenuSelection = gSetting_set_ptt_session;
             break;
@@ -1467,12 +1447,6 @@ void MENU_ShowCurrentSetting(void)
             gSubMenuSelection = gSetting_set_ctr;
             break;
         #endif
-        case MENU_SET_INV:
-            gSubMenuSelection = gSetting_set_inv;
-            break;
-        case MENU_SET_LCK:
-            gSubMenuSelection = gSetting_set_lck;
-            break;
         case MENU_SET_MET:
             gSubMenuSelection = gSetting_set_met;
             break;

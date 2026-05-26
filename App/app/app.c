@@ -984,7 +984,7 @@ void APP_Update(void)
         gTxTimeoutReached = false;
 
 #ifdef ENABLE_FEAT_F4HWN
-        if(gBacklightCountdown_500ms > 0 || gEeprom.BACKLIGHT_TIME == 61)
+        if(gBacklightCountdown_500ms > 0 || gEeprom.BACKLIGHT_TIME == 7)
         {
             //BACKLIGHT_TurnOn();
             BACKLIGHT_SetBrightness(gEeprom.BACKLIGHT_MAX);
@@ -1631,7 +1631,7 @@ void APP_TimeSlice500ms(void)
         // don't turn off backlight if user is in backlight menu option
         && !(gScreenToDisplay == DISPLAY_MENU && (m == MENU_ABR || m == MENU_ABR_MAX || m == MENU_ABR_MIN))
         && --gBacklightCountdown_500ms == 0
-        && gEeprom.BACKLIGHT_TIME < 61
+        && gEeprom.BACKLIGHT_TIME < 7
     ) {
         BACKLIGHT_TurnOff();
     }
@@ -1987,10 +1987,7 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
     bool lowBatPopup = gLowBattery && !gLowBatteryConfirmed &&  gScreenToDisplay == DISPLAY_MAIN;
 
 #ifdef ENABLE_FEAT_F4HWN // Disable PTT if KEY_LOCK
-    bool lck_condition = (gEeprom.KEY_LOCK || lowBatPopup) && gCurrentFunction != FUNCTION_TRANSMIT;
-
-    if(!gSetting_set_lck)
-        lck_condition = lck_condition && Key != KEY_PTT;
+    bool lck_condition = (gEeprom.KEY_LOCK || lowBatPopup) && gCurrentFunction != FUNCTION_TRANSMIT && Key != KEY_PTT;
 
     if (lck_condition)
 #else

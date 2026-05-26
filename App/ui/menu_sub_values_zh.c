@@ -20,14 +20,10 @@ const char * const gSubMenu_OFF_ON_zh[] = {
 
 /* ── TX power level names ───────────────────────────────────────────────── */
 const char * const gSubMenu_TXP_zh[] = {
-    "\xe7\x94\xa8\xe6\x88\xb7",   /* 用户  USER   */
-    "\xe4\xbd\x8e" "1",           /* 低1   LOW 1  */
-    "\xe4\xbd\x8e" "2",           /* 低2   LOW 2  */
-    "\xe4\xbd\x8e" "3",           /* 低3   LOW 3  */
-    "\xe4\xbd\x8e" "4",           /* 低4   LOW 4  */
-    "\xe4\xbd\x8e" "5",           /* 低5   LOW 5  */
-    "\xe4\xb8\xad",               /* 中    MID    */
-    "\xe9\xab\x98",               /* 高    HIGH   */
+    "\xe7\x94\x9a\xe4\xbd\x8e(0.5w)",   /* 甚低(0.5w) */
+    "\xe4\xbd\x8e(1w)",                   /* 低(1w)    */
+    "\xe4\xb8\xad(2w)",                   /* 中(2w)    */
+    "\xe9\xab\x98(5w)",                   /* 高(5w)    */
 };
 
 /* ── Offset direction ────────────────────────────────────────────────────── */
@@ -193,12 +189,6 @@ const char * const gSubMenu_SET_TOT_zh[] = {
     "\xe5\xa3\xb0\xe9\x9f\xb3",   /* 声音 SOUND  */
     "\xe9\x97\xaa\xe7\x83\x81",   /* 闪烁 VISUAL */
     "\xe5\x85\xa8\xe9\x83\xa8",   /* 全部 ALL    */
-};
-
-/* ── Key lock mode ────────────────────────────────────────────────────────── */
-const char * const gSubMenu_SET_LCK_zh[] = {
-    "\xe9\x94\x81\xe9\x94\xae",         /* 锁键      KEYS      */
-    "\xe9\x94\x81\xe9\x94\xae+PTT",     /* 锁键+PTT  KEYS+PTT  */
 };
 
 /* ── S-meter / GUI style ──────────────────────────────────────────────────── */

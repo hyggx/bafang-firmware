@@ -264,7 +264,7 @@ void BATTERY_TimeSlice500ms(void)
 
     ST7565_HardwareReset();
 
-    if (gEeprom.BACKLIGHT_TIME < 61) {
+    if (gEeprom.BACKLIGHT_TIME < 7) {
         BACKLIGHT_TurnOff();
     }
 }

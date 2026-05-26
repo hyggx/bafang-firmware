@@ -190,7 +190,7 @@ enable_feature(ENABLE_FEAT_F4HWN_CHARGING_C)
 enable_feature(ENABLE_FEAT_F4HWN_SLEEP)
 enable_feature(ENABLE_FEAT_F4HWN_RESUME_STATE)
 enable_feature(ENABLE_FEAT_F4HWN_NARROWER)
-enable_feature(ENABLE_FEAT_F4HWN_INV)
+#enable_feature(ENABLE_FEAT_F4HWN_INV)  # removed: screen inversion feature deleted
 enable_feature(ENABLE_FEAT_F4HWN_CTR)
 enable_feature(ENABLE_FEAT_F4HWN_SCAN_PROGRESS)
 enable_feature(ENABLE_FEAT_F4HWN_SCAN_FASTER)

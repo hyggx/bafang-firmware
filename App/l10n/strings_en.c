@@ -74,7 +74,6 @@ const char * const g_str_en[STR_COUNT] = {
     [STR_MENU_SCREN]        = "ScrEn",
     [STR_MENU_F_CALI]       = "FCali",
     [STR_MENU_SET_OFF]      = "SetOff",
-    [STR_MENU_SET_PWR]      = "SetPwr",
     [STR_MENU_SET_PTT]      = "SetPTT",
     [STR_MENU_SET_TOT]      = "SetTOT",
     [STR_MENU_SET_EOT]      = "SetEOT",

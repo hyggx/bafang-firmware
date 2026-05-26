@@ -1804,11 +1804,8 @@ void UI_DisplayMain(void)
                 */
 
                 uint8_t currentPower = gRxVfo->OUTPUT_POWER;
-
-                if(currentPower == OUTPUT_POWER_USER)
-                    Level = gSetting_set_pwr;
-                else
-                    Level = currentPower - 1;
+                static const uint8_t pwr_map[4] = {3, 4, 5, 6};
+                Level = pwr_map[currentPower < 4 ? currentPower : 0];
             }
             else 
             if (mode == VFO_MODE_RX)
@@ -1925,41 +1922,17 @@ void UI_DisplayMain(void)
 
         if (state == VFO_STATE_NORMAL || state == VFO_STATE_ALARM)
         {   // show the TX power
-            uint8_t currentPower = vfoInfo->OUTPUT_POWER % 8;
-            uint8_t arrowPos = 19;
-            bool userPower = false;
-
-            if(currentPower == OUTPUT_POWER_USER)
-            {
-                currentPower = gSetting_set_pwr;
-                userPower = true;
-            }
-            else
-            {
-                currentPower--;
-                userPower = false;
-            }
+            uint8_t currentPower = vfoInfo->OUTPUT_POWER < 4 ? vfoInfo->OUTPUT_POWER : 0;
 
             if (gSetting_set_gui)
             {
-                const char pwr_short[][3] = {"L1", "L2", "L3", "L4", "L5", "M", "H"};
-                //sprintf(String, "%s", pwr_short[currentPower]);
-                //UI_PrintStringSmallNormal(String, LCD_WIDTH + 42, 0, line + 1);
+                const char pwr_short[][2] = {"V", "L", "M", "H"};
                 UI_PrintStringSmallNormal(pwr_short[currentPower], LCD_WIDTH + 42, 0, line + 1);
-
-                arrowPos = 38;
             }
             else
             {
-                const char pwr_long[][5] = {"LOW1", "LOW2", "LOW3", "LOW4", "LOW5", "MID", "HIGH"};
-                //sprintf(String, "%s", pwr_long[currentPower]);
-                //GUI_DisplaySmallest(String, 24, line == 0 ? 17 : 49, false, true);
+                const char pwr_long[][5] = {"VLO", "LOW", "MID", "HIGH"};
                 GUI_DisplaySmallest(pwr_long[currentPower], 24, line == 0 ? 17 : 49, false, true);
-            }
-
-            if(userPower == true)
-            {
-                memcpy(p_line0 + 256 + arrowPos, BITMAP_PowerUser, sizeof(BITMAP_PowerUser));
             }
         }
 
