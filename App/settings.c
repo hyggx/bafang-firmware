@@ -1438,36 +1438,39 @@ void SETTINGS_ResetTxLock(void)
 {
     // This is an expensive operation: full scan of all MR channels
 
-    #define CHANNEL_SIZE               16
-    #define TXLOCK_BYTE_OFFSET         12
-    #define TXLOCK_BIT                 6
-    #define SETTINGS_ResetTxLock_BATCH 32
+    #define CHANNEL_SIZE       16
+    #define TXLOCK_BYTE_OFFSET 12
+    #define TXLOCK_BIT         6
+    #define BATCH_CHANNELS     32                          // channels per I/O batch
+    #define BATCH_BYTES        (BATCH_CHANNELS * CHANNEL_SIZE)  // 512 bytes
 
-    const uint32_t TotalBytes  = MR_CHANNELS_MAX * CHANNEL_SIZE;   // 1024 * 16 = 16 384
-    const uint32_t BatchSize   = TotalBytes / SETTINGS_ResetTxLock_BATCH; // 16 384 / 32 = 512
-    const uint32_t BatchChCnt  = BatchSize / CHANNEL_SIZE;         // 32 channels per batch
+    uint8_t Buf[BATCH_BYTES];
 
-    uint8_t Buf[BatchSize];
+    uint32_t remaining = MR_CHANNELS_MAX;
+    uint32_t channel   = 0;
 
-    for (uint32_t batch = 0; batch < SETTINGS_ResetTxLock_BATCH; batch++)
+    while (remaining > 0)
     {
-        uint32_t Offset = batch * BatchSize;
+        uint32_t count  = (remaining > BATCH_CHANNELS) ? BATCH_CHANNELS : remaining;
+        uint32_t bytes  = count * CHANNEL_SIZE;
+        uint32_t offset = channel * CHANNEL_SIZE;
 
-        PY25Q16_ReadBuffer(Offset, Buf, BatchSize);
+        PY25Q16_ReadBuffer(offset, Buf, bytes);
 
-        for (uint32_t ch = 0; ch < BatchChCnt; ch++)
-        {
-            uint32_t off = ch * CHANNEL_SIZE;
-            Buf[off + TXLOCK_BYTE_OFFSET] |= (1 << TXLOCK_BIT);
-        }
+        for (uint32_t i = 0; i < count; i++)
+            Buf[i * CHANNEL_SIZE + TXLOCK_BYTE_OFFSET] |= (1u << TXLOCK_BIT);
 
-        PY25Q16_WriteBuffer(Offset, Buf, BatchSize, false);
+        PY25Q16_WriteBuffer(offset, Buf, bytes, false);
+
+        channel   += count;
+        remaining -= count;
     }
 
     RADIO_ConfigureChannel(0, VFO_CONFIGURE_RELOAD);
     RADIO_ConfigureChannel(1, VFO_CONFIGURE_RELOAD);
 
-    #undef SETTINGS_ResetTxLock_BATCH
+    #undef BATCH_CHANNELS
+    #undef BATCH_BYTES
     #undef CHANNEL_SIZE
     #undef TXLOCK_BYTE_OFFSET
     #undef TXLOCK_BIT

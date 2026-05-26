@@ -539,24 +539,36 @@ static void MAIN_Key_DIGITS(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
         INPUTBOX_Append(Key);
         gKeyInputCountdown = key_input_timeout_500ms;
 
-        channelMoveSwitch();
-
         gRequestDisplayScreen = DISPLAY_MAIN;
 
         if (IS_MR_CHANNEL(gTxVfo->CHANNEL_SAVE)) { // user is entering channel number
 
-            if (gInputBoxIndex >= 3) {
-                gInputBoxIndex = 0;  // immediately clear input (haige style: don't display 3rd digit)
-            } else {
+            if (gInputBoxIndex < 3) {
+                // Waiting for more digits — show partial input, don't switch yet
                 gKeyInputCountdown = key_input_timeout_500ms / 4;
+                #ifdef ENABLE_VOICE
+                    gAnotherVoiceID = (VOICE_ID_t)Key;
+                #endif
+                return;
+            }
+
+            // All 3 digits: compute channel BEFORE clearing input box, then clear (haige style)
+            const uint16_t Channel = (gInputBox[0] * 100) + (gInputBox[1] * 10) + gInputBox[2];
+            gInputBoxIndex = 0;
+
+            if (Channel > 0) {
+                channelMove(Channel - 1);
+                SETTINGS_SaveVfoIndices();
             }
 
             #ifdef ENABLE_VOICE
                 gAnotherVoiceID   = (VOICE_ID_t)Key;
             #endif
-            
+
             return;
         }
+
+        channelMoveSwitch();
 
 //      #ifdef ENABLE_NOAA
 //          if (!IS_NOAA_CHANNEL(gTxVfo->CHANNEL_SAVE))

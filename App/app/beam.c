@@ -80,7 +80,7 @@ static void BEAM_SetRadioToBeamFrequency(void)
 
     RADIO_InitInfo(&gBeamRadioVfo, channel, DEFAULT_FREQ);
     gBeamRadioVfo.CHANNEL_BANDWIDTH = BANDWIDTH_NARROW;
-    gBeamRadioVfo.OUTPUT_POWER = OUTPUT_POWER_LOW1;
+    gBeamRadioVfo.OUTPUT_POWER = OUTPUT_POWER_LOW;
     RADIO_ConfigureSquelchAndOutputPower(&gBeamRadioVfo);
 
     gRxVfo = &gBeamRadioVfo;
