@@ -1,0 +1,13 @@
+# Dockerfile-local — local-build variant using the locally available archlinux:latest image.
+# Use when Docker Hub is not reachable.
+# Build:  docker build --platform linux/amd64 -t uvk1-uvk5v3 -f Dockerfile-local .
+# The arm-none-eabi-gcc version comes from the Arch Linux rolling repo (currently 15.x).
+
+FROM --platform=linux/amd64 archlinux:latest
+
+RUN pacman -Syyu --noconfirm && \
+    pacman -S --noconfirm \
+      base-devel cmake ninja \
+      arm-none-eabi-gcc arm-none-eabi-newlib
+
+WORKDIR /src
