@@ -1309,9 +1309,12 @@ void UI_DisplayMenu(void)
             uint8_t       p    = 0;
 
             if (page == p++) {
-                // Page 0: firmware identity.
-                sprintf(String, "%s\n%s", AUTHOR_STRING, VERSION_STRING);
-                UI_PrintStringSmallNormal(Edition, 0, menu_item_x2, 6);
+                // Page 0: firmware identity — draw all three items manually so
+                // Edition (page 6) is not overwritten by the generic text loop.
+                print_menu_value(AUTHOR_STRING, menu_item_x1, menu_item_x2, 2);
+                print_menu_value(VERSION_STRING, menu_item_x1, menu_item_x2, 4);
+                UI_PrintStringSmallNormal(Edition, menu_item_x1, menu_item_x2, 6);
+                already_printed = true;
                 break;
             }
 
