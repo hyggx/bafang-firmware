@@ -445,14 +445,13 @@ gEeprom.FreqChannel[1]   = IS_FREQ_CHANNEL(Data16[5]) ? Data16[5] : (FREQ_CHANNE
         
         if (att != NULL) {
             if (att->__val == 0xFFFF) {
+                // Uninitialized entry: set defaults and persist
                 att->__val = 0;
                 att->band = 0x7;
                 MR_SetChannelAttributes(i, att);  // ⭐ IMPORTANT: Sauvegarder!
             }
-            else {
-                att->exclude = 0;
-                MR_SetChannelAttributes(i, att);  // ⭐ IMPORTANT: Sauvegarder!
-            }
+            // Already-initialized entries are loaded as-is; do NOT clear exclude
+            // (scan exclusions are persistent and must survive reboot)
         }
     }
 
