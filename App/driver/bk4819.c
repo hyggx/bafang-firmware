@@ -398,7 +398,10 @@ int8_t BK4819_GetRxGain_dB(void)
 int16_t BK4819_GetRSSI_dBm(void)
 {
     uint16_t rssi = BK4819_GetRSSI();
-    return (rssi / 2) - 160;// - BK4819_GetRxGain_dB();
+    // REG_67[8:0] has 0.5 dB/LSB resolution; add 1 before dividing to round to
+    // nearest 1 dBm instead of always truncating downward (systematic −0.5 dBm
+    // bias on every odd raw value).
+    return (int16_t)((rssi + 1u) / 2) - 160;// - BK4819_GetRxGain_dB();
 }
 
 void BK4819_ToggleGpioOut(BK4819_GPIO_PIN_t Pin, bool bSet)

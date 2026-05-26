@@ -279,7 +279,9 @@ static uint8_t DBm2S(int dbm)
 
 static int Rssi2DBm(uint16_t rssi)
 {
-    return (rssi / 2) - 160 + dBmCorrTable[gRxVfo->Band];
+    // Same rounding fix as BK4819_GetRSSI_dBm(): +1 before dividing by 2 rounds
+    // to nearest 1 dBm and eliminates the systematic −0.5 dBm truncation bias.
+    return (int)((rssi + 1u) / 2) - 160 + dBmCorrTable[gRxVfo->Band];
 }
 
 static uint16_t GetRegMenuValue(uint8_t st)

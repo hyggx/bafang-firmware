@@ -287,7 +287,10 @@ static void SendVersion(uint32_t Port)
 
     Reply.Header.ID = 0x0515;
     Reply.Header.Size = sizeof(Reply.Data);
-    strcpy(Reply.Data.Version, Version);
+    // Bounded copy: null-terminate unconditionally so future growth of
+    // AUTHOR_STRING or VERSION_STRING cannot silently overflow Version[16].
+    strncpy(Reply.Data.Version, Version, sizeof(Reply.Data.Version) - 1);
+    Reply.Data.Version[sizeof(Reply.Data.Version) - 1] = '\0';
     Reply.Data.bHasCustomAesKey = bHasCustomAesKey;
     Reply.Data.bIsInLockScreen = bIsInLockScreen;
     Reply.Data.Challenge[0] = gChallenge[0];

@@ -934,12 +934,35 @@ void DisplayRSSIBar(const bool now)
         memset(p_line, 0, LCD_WIDTH);
 
 #ifdef ENABLE_FEAT_F4HWN
-    int16_t rssi_dBm =
+    // IIR low-pass state for the RSSI bar display (α = ½, τ ≈ 500 ms).
+    // Seeded on the first sample and reset on VFO change so stale values
+    // from the previous channel never bleed into the new channel's display.
+    static int16_t      rssi_disp_dBm    = 0;
+    static bool         rssi_disp_seeded = false;
+    static const void  *rssi_disp_vfo    = NULL;
+
+    const int16_t raw_dBm =
         BK4819_GetRSSI_dBm()
 #ifdef ENABLE_AM_FIX
         + ((gSetting_AM_fix && gRxVfo->Modulation == MODULATION_AM) ? AM_fix_get_gain_diff(gEeprom.RX_VFO) : 0)
 #endif
         + dBmCorrTable[gRxVfo->Band];
+
+    if (gRxVfo != rssi_disp_vfo) {
+        // VFO changed — clear seed so the first sample is shown without lag.
+        rssi_disp_seeded = false;
+        rssi_disp_vfo    = gRxVfo;
+    }
+    if (!rssi_disp_seeded) {
+        rssi_disp_dBm    = raw_dBm;
+        rssi_disp_seeded = true;
+    } else {
+        // α = ½: each new sample contributes 50% weight; two equal readings
+        // converge in one tick.  Smooths the 500 ms point-sample so a single
+        // noisy reading does not cause a visible jump on the S-meter.
+        rssi_disp_dBm += (int16_t)((raw_dBm - rssi_disp_dBm) >> 1);
+    }
+    int16_t rssi_dBm = rssi_disp_dBm;
 
     // IARU VHF/UHF S-meter: S9 = -93 dBm, 1 S-unit = 6 dB
     // S(n) threshold = -93 + (n - 9) * 6
