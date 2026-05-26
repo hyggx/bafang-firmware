@@ -1465,9 +1465,9 @@ void UI_DisplayMain(void)
             const unsigned int x = 1;
             const bool inputting = gInputBoxIndex != 0 && gEeprom.TX_VFO == vfo_num;
             if (!inputting || gScanStateDir != SCAN_OFF)
-                sprintf(String, "%04u", gEeprom.ScreenChannel[vfo_num] + 1);
+                sprintf(String, "%03u", gEeprom.ScreenChannel[vfo_num] + 1);
             else
-                sprintf(String, "%.4s", INPUTBOX_GetAsciiAlignRight() + 4);  // show the input text
+                sprintf(String, "%.3s", INPUTBOX_GetAsciiAlignRight() + 5);  // show the input text
 
             //if (gSetting_set_gui) {
                 UI_PrintStringSmallNormalInverse(String, x, 0, line + 1);
@@ -1668,7 +1668,7 @@ void UI_DisplayMain(void)
                         break;
 
                     case MDF_CHANNEL:   // show the channel number
-                        sprintf(String, "CH-%04u", gEeprom.ScreenChannel[vfo_num] + 1);
+                        sprintf(String, "CH-%03u", gEeprom.ScreenChannel[vfo_num] + 1);
                         UI_PrintString(String, 36, 0, line, 8);
                         break;
 
@@ -1678,7 +1678,7 @@ void UI_DisplayMain(void)
                         SETTINGS_FetchChannelName(String, gEeprom.ScreenChannel[vfo_num]);
                         if (String[0] == 0)
                         {   // no channel name, show the channel number instead
-                            sprintf(String, "CH-%04u", gEeprom.ScreenChannel[vfo_num] + 1);
+                            sprintf(String, "CH-%03u", gEeprom.ScreenChannel[vfo_num] + 1);
                         }
 
                         if (gEeprom.CHANNEL_DISPLAY_MODE == MDF_NAME) {

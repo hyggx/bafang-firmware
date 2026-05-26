@@ -80,7 +80,7 @@ DECLARE_AIRCOPY_BANK(1)
     DECLARE_AIRCOPY_BANK(4)
     DECLARE_AIRCOPY_BANK(5)
 #endif
-#if AIRCOPY_NUM_BANKS >= 8 // if 1024 MR CHANNEL
+#if AIRCOPY_NUM_BANKS >= 8 // if 897+ MR CHANNEL (ceil(897/128)=8)
     DECLARE_AIRCOPY_BANK(6)
     DECLARE_AIRCOPY_BANK(7)
 #endif
@@ -113,7 +113,7 @@ static const AIRCOPY_TransferMap_t *AIRCOPY_AvailableMaps[] = {
         &AIRCOPY_Map_Bank4,
         &AIRCOPY_Map_Bank5,
     #endif
-    #if AIRCOPY_NUM_BANKS >= 8 // if 1024 MR CHANNEL
+    #if AIRCOPY_NUM_BANKS >= 8 // if 897+ MR CHANNEL
         &AIRCOPY_Map_Bank6,
         &AIRCOPY_Map_Bank7,
     #endif

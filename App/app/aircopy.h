@@ -27,7 +27,8 @@
 
 #define AIRCOPY_BLOCK_SIZE           0x0040u  // 64 bytes per AirCopy block
 #define AIRCOPY_CHANNELS_PER_BANK    128
-#define AIRCOPY_NUM_BANKS            MR_CHANNELS_MAX / AIRCOPY_CHANNELS_PER_BANK
+// Ceiling division: all channels fit in banks (last bank may be partially filled).
+#define AIRCOPY_NUM_BANKS            ((MR_CHANNELS_MAX + AIRCOPY_CHANNELS_PER_BANK - 1) / AIRCOPY_CHANNELS_PER_BANK)
 #define AIRCOPY_CHANNEL_SIZE         16       // bytes per channel (freq/name)
 #define AIRCOPY_BANK_SIZE_BYTES      0x1080u  // 0x800 (Freq) + 0x800 (Name) + 0x80 (Attr)
 #define AIRCOPY_BAR_WIDTH            120      // Visible width of the progress gauge
