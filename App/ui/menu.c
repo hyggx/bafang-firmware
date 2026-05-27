@@ -924,7 +924,7 @@ void UI_DisplayMenu(void)
         // Title: current item name, big font (16px, fills pages 0-1), left-aligned.
         // Big font writes only the LEFT columns of pages 0-1; the counter occupies the
         // RIGHT columns, so there is no conflict as long as the title is ≤ ~12 chars.
-        if (menu_index >= 0 && menu_index < (int)gMenuListCount) {
+        if (menu_index >= 0 && menu_index < (int)ARRAY_SIZE(MenuList) && MenuList[menu_index].name[0] != '\0') {
             const char *_mn = MENU_ItemName(&MenuList[menu_index]);
             if (g_lang != LANG_EN)
                 UI_PrintStringUTF8(_mn, 0, 0);
