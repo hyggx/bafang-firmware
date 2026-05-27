@@ -808,7 +808,7 @@ static void UI_DisplayMenuCat(void)
         "Signal", "Channel", "DTMF", "Display", "System"
     };
     static const char * const kCatNameZh[MENU_CAT_COUNT] = {
-        "信号", "频道", "DTMF", "显示", "系统"
+        "信号设置", "频道设置", "双音多频", "显示设置", "系统设置"
     };
 
     // 3 big-font items (16px each = 2 pages) on pages 0-5; pages 6-7 empty.
