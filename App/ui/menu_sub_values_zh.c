@@ -193,7 +193,7 @@ const char * const gSubMenu_SET_TOT_zh[] = {
 
 /* ── S-meter / GUI style ──────────────────────────────────────────────────── */
 const char * const gSubMenu_SET_MET_zh[] = {
-    "\xe7\xb2\xbe\xe7\xae\x80",   /* 精简  TINY    */
+    "\xe7\xb4\xa7\xe5\x87\x91",   /* 紧凑  TINY    */
     "\xe7\xbb\x8f\xe5\x85\xb8",   /* 经典  CLASSIC */
 };
 
