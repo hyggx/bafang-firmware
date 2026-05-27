@@ -26,7 +26,26 @@
 typedef struct {
     const char  name[7];    // menu display area only has room for 6 characters
     uint8_t     menu_id;
+    uint8_t     cat_id;     // MENU_CAT_* category; MENU_CAT_NONE for hidden items
 } t_menu_item;
+
+// ---------- Two-level categorised menu ----------------------------------
+#define MENU_CAT_SIGNAL   0u   // RF / signal parameters
+#define MENU_CAT_CHANNEL  1u   // channel & scan
+#define MENU_CAT_DTMF     2u   // DTMF / signalling
+#define MENU_CAT_DISPLAY  3u   // display, keys, audio feedback
+#define MENU_CAT_SYSTEM   4u   // system / battery / misc
+#define MENU_CAT_COUNT    5u
+#define MENU_CAT_NONE     0xFFu // hidden items (no category)
+
+// Enable category navigation when not in hidden-menu mode (gF_LOCK == false).
+// Requires ENABLE_FEAT_F4HWN for localisation support; disabled on plain builds.
+#ifdef ENABLE_FEAT_F4HWN
+    extern bool gF_LOCK;
+    #define USE_CAT_MENU()  (!gF_LOCK)
+#else
+    #define USE_CAT_MENU()  0
+#endif
 
 enum
 {
@@ -236,6 +255,10 @@ extern const t_sidefunction gSubMenu_SIDEFUNCTIONS[];
 extern bool              gIsInSubMenu;
                          
 extern uint8_t           gMenuCursor;
+extern uint8_t           gMenuCategory;      // MENU_CAT_NONE = top level; 0-4 = inside that category
+extern uint8_t           gMenuCatCursor;     // selected category at top level (0 .. MENU_CAT_COUNT-1)
+extern uint8_t           gMenuCatFirstIdx[MENU_CAT_COUNT]; // first MenuList[] index per category
+extern uint8_t           gMenuCatItemCount[MENU_CAT_COUNT];// visible item count per category
 
 extern int32_t           gSubMenuSelection;
                          
@@ -245,7 +268,8 @@ extern int               edit_index;
 extern bool              edit_is_uppercase;
 
 void UI_DisplayMenu(void);
-int UI_MENU_GetCurrentMenuId();
+int  UI_MENU_GetCurrentMenuId();
 uint8_t UI_MENU_GetMenuIdx(uint8_t id);
+void UI_MENU_GoToItem(uint8_t menu_id);  // navigate to item and set its category context
 
 #endif

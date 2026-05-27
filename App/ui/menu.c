@@ -203,150 +203,159 @@ static inline const char *MENU_ItemName(const t_menu_item *item)
 
 const t_menu_item MenuList[] =
 {
-//   text,          menu ID
-    {"Step",        MENU_STEP          },
-    {"Power",       MENU_TXP           }, // was "TXP"
-    {"RxDCS",       MENU_R_DCS         }, // was "R_DCS"
-    {"RxCTCS",      MENU_R_CTCS        }, // was "R_CTCS"
-    {"TxDCS",       MENU_T_DCS         }, // was "T_DCS"
-    {"TxCTCS",      MENU_T_CTCS        }, // was "T_CTCS"
-    {"TxODir",      MENU_SFT_D         }, // was "SFT_D"
-    {"TxOffs",      MENU_OFFSET        }, // was "OFFSET"
-    {"W/N",         MENU_W_N           },
-#ifndef ENABLE_FEAT_F4HWN
-    {"Scramb",      MENU_SCR           }, // was "SCR"
+//   text,          menu ID               category
+// ── SIGNAL ──────────────────────────────────────
+    {"Sql",         MENU_SQL,           MENU_CAT_SIGNAL},
+    {"Step",        MENU_STEP,          MENU_CAT_SIGNAL},
+    {"Power",       MENU_TXP,           MENU_CAT_SIGNAL}, // was "TXP"
+    {"W/N",         MENU_W_N,           MENU_CAT_SIGNAL},
+    {"Mode",        MENU_AM,            MENU_CAT_SIGNAL}, // was "AM"
+    {"RxMode",      MENU_TDR,           MENU_CAT_SIGNAL},
+#ifdef ENABLE_VOX
+    {"VOX",         MENU_VOX,           MENU_CAT_SIGNAL},
 #endif
-    {"BusyCL",      MENU_BCL           }, // was "BCL"
-    {"Compnd",      MENU_COMPAND       },
-    {"Mode",        MENU_AM            }, // was "AM"
+    {"BusyCL",      MENU_BCL,           MENU_CAT_SIGNAL}, // was "BCL"
+    {"Compnd",      MENU_COMPAND,       MENU_CAT_SIGNAL},
 #ifdef ENABLE_FEAT_F4HWN
-    {"TXLock",      MENU_TX_LOCK       }, 
+    {"TXLock",      MENU_TX_LOCK,       MENU_CAT_SIGNAL},
 #endif
-    {"ChList",      MENU_LIST_CH       },
-    {"ChSave",      MENU_MEM_CH        }, // was "MEM-CH"
-    {"ChName",      MENU_MEM_NAME      },
-
-    {"ScList",       MENU_S_LIST       },
-    {"ScPri",        MENU_S_PRI        },
-    {"PriCh1",       MENU_S_PRI_CH_1   },
-    {"PriCh2",       MENU_S_PRI_CH_2   },
-    {"ScnRev",      MENU_SC_REV        },
+    {"RxDCS",       MENU_R_DCS,         MENU_CAT_SIGNAL}, // was "R_DCS"
+    {"RxCTCS",      MENU_R_CTCS,        MENU_CAT_SIGNAL}, // was "R_CTCS"
+    {"TxDCS",       MENU_T_DCS,         MENU_CAT_SIGNAL}, // was "T_DCS"
+    {"TxCTCS",      MENU_T_CTCS,        MENU_CAT_SIGNAL}, // was "T_CTCS"
+    {"TxODir",      MENU_SFT_D,         MENU_CAT_SIGNAL}, // was "SFT_D"
+    {"TxOffs",      MENU_OFFSET,        MENU_CAT_SIGNAL}, // was "OFFSET"
 #ifndef ENABLE_FEAT_F4HWN
-    #ifdef ENABLE_NOAA
-        {"NOAA-S",      MENU_NOAA_S    },
-    #endif
-#endif
-    {"F1Shrt",      MENU_F1SHRT        },
-    {"F1Long",      MENU_F1LONG        },
-    {"F2Shrt",      MENU_F2SHRT        },
-    {"F2Long",      MENU_F2LONG        },
-    {"M Long",      MENU_MLONG         },
-
-    {"KeyLck",      MENU_AUTOLK        }, // was "AUTOLk"
-    {"TxTOut",      MENU_TOT           }, // was "TOT"
-    {"BatSav",      MENU_SAVE          }, // was "SAVE"
-    {"BatTxt",      MENU_BAT_TXT       },
-    {"Mic",         MENU_MIC           },
-    {"MicBar",      MENU_MIC_BAR       },
-    {"ChDisp",      MENU_MDF           }, // was "MDF"
-    {"POnMsg",      MENU_PONMSG        },
-    {"BLTime",      MENU_ABR           }, // was "ABR"
-    {"BLMin",       MENU_ABR_MIN       },
-    {"BLMax",       MENU_ABR_MAX       },
-    {"BLTxRx",      MENU_ABR_ON_TX_RX  },
-    {"Beep",        MENU_BEEP          },
-#ifdef ENABLE_VOICE
-    {"Voice",       MENU_VOICE         },
-#endif
-    {"Roger",       MENU_ROGER         },
-    {"STE",         MENU_STE           },
-    {"RP STE",      MENU_RP_STE        },
-    {"1 Call",      MENU_1_CALL        },
-#ifdef ENABLE_ALARM
-    {"AlarmT",      MENU_AL_MOD        },
-#endif
-#ifdef ENABLE_DTMF_CALLING
-    {"ANI ID",      MENU_ANI_ID        },
-#endif
-    {"UPCode",      MENU_UPCODE        },
-    {"DWCode",      MENU_DWCODE        },
-    {"PTT ID",      MENU_PTT_ID        },
-    {"D ST",        MENU_D_ST          },
-#ifdef ENABLE_DTMF_CALLING
-    {"D Resp",      MENU_D_RSP         },
-    {"D Hold",      MENU_D_HOLD        },
-#endif
-    {"D Prel",      MENU_D_PRE         },
-#ifdef ENABLE_DTMF_CALLING
-    {"D Decd",      MENU_D_DCD         },
-    {"D List",      MENU_D_LIST        },
-#endif
-    {"D Live",      MENU_D_LIVE_DEC    }, // live DTMF decoder
-#ifndef ENABLE_FEAT_F4HWN
+    {"Scramb",      MENU_SCR,           MENU_CAT_SIGNAL}, // was "SCR"
     #ifdef ENABLE_AM_FIX
-        {"AM Fix",      MENU_AM_FIX        },
+    {"AM Fix",      MENU_AM_FIX,        MENU_CAT_SIGNAL},
     #endif
-#endif
-    {"VOX",         MENU_VOX           },
-#ifndef ENABLE_FEAT_F4HWN
-    {"BatVol",      MENU_VOL           }, // was "VOL"
-#endif
-    {"RxMode",      MENU_TDR           },
-    {"Sql",         MENU_SQL           },
-#ifdef ENABLE_FEAT_F4HWN
-    {"SetPTT",      MENU_SET_PTT       },
-    {"SetTOT",      MENU_SET_TOT       },
-    {"SetEOT",      MENU_SET_EOT       },
-    {"SetCtr",      MENU_SET_CTR       },
-    {"SetMet",      MENU_SET_MET       },
-    {"SetGUI",      MENU_SET_GUI       },
-#ifdef ENABLE_FEAT_F4HWN_AUDIO    
-    {"SetRxA",      MENU_SET_AUD       },
-#endif
-    {"SetTmr",      MENU_SET_TMR       },
-#ifdef ENABLE_FEAT_F4HWN_SLEEP
-    {"SetOff",       MENU_SET_OFF      },
 #endif
 #ifdef ENABLE_FEAT_F4HWN_NARROWER
-    {"SetNFM",      MENU_SET_NFM       },
+    {"SetNFM",      MENU_SET_NFM,       MENU_CAT_SIGNAL},
+#endif
+#ifdef ENABLE_FEAT_F4HWN_AUDIO
+    {"SetRxA",      MENU_SET_AUD,       MENU_CAT_SIGNAL},
 #endif
 #ifdef ENABLE_FEAT_F4HWN_VOL
-    {"SetRxGn",     MENU_SET_VOL       },
+    {"SetRxGn",     MENU_SET_VOL,       MENU_CAT_SIGNAL},
 #endif
-#ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
-    {"SetKey",      MENU_SET_KEY       },
+
+// ── CHANNEL ──────────────────────────────────────
+    {"ChList",      MENU_LIST_CH,       MENU_CAT_CHANNEL},
+    {"ChSave",      MENU_MEM_CH,        MENU_CAT_CHANNEL}, // was "MEM-CH"
+    {"ChName",      MENU_MEM_NAME,      MENU_CAT_CHANNEL},
+    {"ChDele",      MENU_DEL_CH,        MENU_CAT_CHANNEL}, // was "DEL-CH"
+    {"1 Call",      MENU_1_CALL,        MENU_CAT_CHANNEL},
+    {"ScList",      MENU_S_LIST,        MENU_CAT_CHANNEL},
+    {"ScPri",       MENU_S_PRI,         MENU_CAT_CHANNEL},
+    {"PriCh1",      MENU_S_PRI_CH_1,    MENU_CAT_CHANNEL},
+    {"PriCh2",      MENU_S_PRI_CH_2,    MENU_CAT_CHANNEL},
+    {"ScnRev",      MENU_SC_REV,        MENU_CAT_CHANNEL},
+#ifdef ENABLE_FEAT_F4HWN
+    #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
+    {"SetScn",      MENU_SET_SCN,       MENU_CAT_CHANNEL},
+    #endif
+    #ifdef ENABLE_NOAA
+    {"SetNWR",      MENU_NOAA_S,        MENU_CAT_CHANNEL},
+    #endif
+#else
+    #ifdef ENABLE_NOAA
+    {"NOAA-S",      MENU_NOAA_S,        MENU_CAT_CHANNEL},
+    #endif
 #endif
-#ifdef ENABLE_NOAA
-    {"SetNWR",      MENU_NOAA_S    },
+
+// ── DTMF ─────────────────────────────────────────
+    {"UPCode",      MENU_UPCODE,        MENU_CAT_DTMF},
+    {"DWCode",      MENU_DWCODE,        MENU_CAT_DTMF},
+    {"PTT ID",      MENU_PTT_ID,        MENU_CAT_DTMF},
+    {"D ST",        MENU_D_ST,          MENU_CAT_DTMF},
+    {"D Prel",      MENU_D_PRE,         MENU_CAT_DTMF},
+    {"D Live",      MENU_D_LIVE_DEC,    MENU_CAT_DTMF}, // live DTMF decoder
+#ifdef ENABLE_DTMF_CALLING
+    {"ANI ID",      MENU_ANI_ID,        MENU_CAT_DTMF},
+    {"D Resp",      MENU_D_RSP,         MENU_CAT_DTMF},
+    {"D Hold",      MENU_D_HOLD,        MENU_CAT_DTMF},
+    {"D Decd",      MENU_D_DCD,         MENU_CAT_DTMF},
+    {"D List",      MENU_D_LIST,        MENU_CAT_DTMF},
 #endif
-#ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
-    {"SetScn",      MENU_SET_SCN       },
+#ifdef ENABLE_ALARM
+    {"AlarmT",      MENU_AL_MOD,        MENU_CAT_DTMF},
 #endif
-    {"ChDele",      MENU_DEL_CH        }, // was "DEL-CH"
-    {"Lang",        MENU_LANG          }, // UI language EN/ZH
-    {"SysInf",      MENU_VOL           }, // system info (last)
+    {"STE",         MENU_STE,           MENU_CAT_DTMF},
+    {"RP STE",      MENU_RP_STE,        MENU_CAT_DTMF},
+
+// ── DISPLAY / KEYS ───────────────────────────────
+    {"ChDisp",      MENU_MDF,           MENU_CAT_DISPLAY}, // was "MDF"
+    {"POnMsg",      MENU_PONMSG,        MENU_CAT_DISPLAY},
+    {"BatTxt",      MENU_BAT_TXT,       MENU_CAT_DISPLAY},
+    {"BLTime",      MENU_ABR,           MENU_CAT_DISPLAY}, // was "ABR"
+    {"BLMin",       MENU_ABR_MIN,       MENU_CAT_DISPLAY},
+    {"BLMax",       MENU_ABR_MAX,       MENU_CAT_DISPLAY},
+    {"BLTxRx",      MENU_ABR_ON_TX_RX,  MENU_CAT_DISPLAY},
+#ifdef ENABLE_FEAT_F4HWN
+    {"SetCtr",      MENU_SET_CTR,       MENU_CAT_DISPLAY},
+    {"SetGUI",      MENU_SET_GUI,       MENU_CAT_DISPLAY},
+    {"SetMet",      MENU_SET_MET,       MENU_CAT_DISPLAY},
 #endif
-    // hidden menu items from here on
-    // enabled if pressing both the PTT and upper side button at power-on
-    {"F Lock",      MENU_F_LOCK        },
+    {"F1Shrt",      MENU_F1SHRT,        MENU_CAT_DISPLAY},
+    {"F1Long",      MENU_F1LONG,        MENU_CAT_DISPLAY},
+    {"F2Shrt",      MENU_F2SHRT,        MENU_CAT_DISPLAY},
+    {"F2Long",      MENU_F2LONG,        MENU_CAT_DISPLAY},
+    {"M Long",      MENU_MLONG,         MENU_CAT_DISPLAY},
+    {"KeyLck",      MENU_AUTOLK,        MENU_CAT_DISPLAY}, // was "AUTOLk"
+#ifdef ENABLE_FEAT_F4HWN
+    {"SetPTT",      MENU_SET_PTT,       MENU_CAT_DISPLAY},
+#endif
+    {"Beep",        MENU_BEEP,          MENU_CAT_DISPLAY},
+#ifdef ENABLE_VOICE
+    {"Voice",       MENU_VOICE,         MENU_CAT_DISPLAY},
+#endif
+    {"Roger",       MENU_ROGER,         MENU_CAT_DISPLAY},
 #ifndef ENABLE_FEAT_F4HWN
-    {"Tx 200",      MENU_200TX         }, // was "200TX"
-    {"Tx 350",      MENU_350TX         }, // was "350TX"
-    {"Tx 500",      MENU_500TX         }, // was "500TX"
+    {"BatVol",      MENU_VOL,           MENU_CAT_DISPLAY}, // was "VOL"
 #endif
-    {"350 En",      MENU_350EN         }, // was "350EN"
+
+// ── SYSTEM ───────────────────────────────────────
+    {"TxTOut",      MENU_TOT,           MENU_CAT_SYSTEM}, // was "TOT"
+    {"BatSav",      MENU_SAVE,          MENU_CAT_SYSTEM}, // was "SAVE"
+    {"Mic",         MENU_MIC,           MENU_CAT_SYSTEM},
+    {"MicBar",      MENU_MIC_BAR,       MENU_CAT_SYSTEM},
+#ifdef ENABLE_FEAT_F4HWN
+    {"SetTOT",      MENU_SET_TOT,       MENU_CAT_SYSTEM},
+    {"SetEOT",      MENU_SET_EOT,       MENU_CAT_SYSTEM},
+    {"SetTmr",      MENU_SET_TMR,       MENU_CAT_SYSTEM},
+    #ifdef ENABLE_FEAT_F4HWN_SLEEP
+    {"SetOff",      MENU_SET_OFF,       MENU_CAT_SYSTEM},
+    #endif
+    #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
+    {"SetKey",      MENU_SET_KEY,       MENU_CAT_SYSTEM},
+    #endif
+    {"Lang",        MENU_LANG,          MENU_CAT_SYSTEM}, // UI language EN/ZH
+    {"SysInf",      MENU_VOL,           MENU_CAT_SYSTEM}, // system info (last)
+#endif
+
+// ── HIDDEN ───────────────────────────────────────
+// enabled if pressing both the PTT and upper side button at power-on
+    {"F Lock",      MENU_F_LOCK,        MENU_CAT_NONE},
 #ifndef ENABLE_FEAT_F4HWN
-    {"ScraEn",      MENU_SCREN         }, // was "SCREN"
+    {"Tx 200",      MENU_200TX,         MENU_CAT_NONE}, // was "200TX"
+    {"Tx 350",      MENU_350TX,         MENU_CAT_NONE}, // was "350TX"
+    {"Tx 500",      MENU_500TX,         MENU_CAT_NONE}, // was "500TX"
+#endif
+    {"350 En",      MENU_350EN,         MENU_CAT_NONE}, // was "350EN"
+#ifndef ENABLE_FEAT_F4HWN
+    {"ScraEn",      MENU_SCREN,         MENU_CAT_NONE}, // was "SCREN"
 #endif
 #ifdef ENABLE_F_CAL_MENU
-    {"FrCali",      MENU_F_CALI        }, // reference xtal calibration
+    {"FrCali",      MENU_F_CALI,        MENU_CAT_NONE}, // reference xtal calibration
 #endif
-    {"BatCal",      MENU_BATCAL        }, // battery voltage calibration
-    {"BatTyp",      MENU_BATTYP        }, // battery type 1600/2200mAh
-    {"SetNav",      MENU_SET_NAV       }, // set navigation (LEFT / RIGHT or UP / DOWN)
-    {"Reset",       MENU_RESET         }, // might be better to move this to the hidden menu items ?
+    {"BatCal",      MENU_BATCAL,        MENU_CAT_NONE}, // battery voltage calibration
+    {"BatTyp",      MENU_BATTYP,        MENU_CAT_NONE}, // battery type 1600/2200mAh
+    {"SetNav",      MENU_SET_NAV,       MENU_CAT_NONE}, // set navigation direction
+    {"Reset",       MENU_RESET,         MENU_CAT_NONE}, // factory reset
 
-    {"",                              0xff               }  // end of list - DO NOT delete or move this this
+    {"",            0xff,               MENU_CAT_NONE}  // end of list - DO NOT delete or move
 };
 
 const uint8_t FIRST_HIDDEN_MENU_ITEM = MENU_F_LOCK;
@@ -691,6 +700,10 @@ static void print_menu_value(const char *s,
 
 bool    gIsInSubMenu;
 uint8_t gMenuCursor;
+uint8_t gMenuCategory   = MENU_CAT_NONE; // MENU_CAT_NONE = top-level category screen
+uint8_t gMenuCatCursor  = 0;             // highlighted category at top level
+uint8_t gMenuCatFirstIdx[MENU_CAT_COUNT];
+uint8_t gMenuCatItemCount[MENU_CAT_COUNT];
 int UI_MENU_GetCurrentMenuId() {
     if(gMenuCursor < ARRAY_SIZE(MenuList))
         return MenuList[gMenuCursor].menu_id;
@@ -704,6 +717,19 @@ uint8_t UI_MENU_GetMenuIdx(uint8_t id)
         if(MenuList[i].menu_id == id)
             return i;
     return 0;
+}
+
+/* Navigate to menu_id and enter its category (no-op when gF_LOCK is set). */
+void UI_MENU_GoToItem(uint8_t menu_id)
+{
+    gMenuCursor = UI_MENU_GetMenuIdx(menu_id);
+    if (USE_CAT_MENU()) {
+        uint8_t cat = MenuList[gMenuCursor].cat_id;
+        if (cat < MENU_CAT_COUNT) {
+            gMenuCategory  = cat;
+            gMenuListCount = gMenuCatItemCount[cat];
+        }
+    }
 }
 
 int32_t gSubMenuSelection;
@@ -773,8 +799,54 @@ static void UI_MENU_DrawTopRightRoundedBadge(const char *text, const uint8_t lin
 }
 #endif /* ENABLE_CUSTOM_MENU_LAYOUT */
 
+// ── Category selection screen ──────────────────────────────────────────────
+// Renders one category per display-page (row).  ASCII-only because the CJK
+// glyph height (12 px) does not fit in a single 8-px page row.
+static void UI_DisplayMenuCat(void)
+{
+    static const char * const kCatName[MENU_CAT_COUNT] = {
+        "Signal", "Channel", "DTMF", "Display", "System"
+    };
+
+    UI_DisplayClear();
+
+    for (uint8_t c = 0; c < MENU_CAT_COUNT; c++) {
+        // Bullet character '>' in front of selected category
+        if (c == gMenuCatCursor) {
+            UI_PrintStringSmallNormal(">", 1, 0, c);
+        }
+        // Category name, left side
+        UI_PrintStringSmallNormal(kCatName[c], 9, 0, c);
+
+        // Item count badge "[nn]" on the right
+        char badge[6];
+        sprintf(badge, "[%2u]", gMenuCatItemCount[c]);
+        UI_PrintStringSmallNormal(badge, LCD_WIDTH - 30, 0, c);
+
+        // Invert the selected row
+        if (c == gMenuCatCursor) {
+            for (uint8_t col = 0; col < LCD_WIDTH; col++)
+                gFrameBuffer[c][col] ^= 0xFF;
+        }
+    }
+
+    // Separator line on page 5
+    for (uint8_t col = 0; col < LCD_WIDTH; col++)
+        gFrameBuffer[5][col] = 0x08; // single middle pixel row
+
+    // Hint on page 6
+    UI_PrintStringSmallNormal("MENU:Enter  EXIT:Back", 1, 0, 6);
+}
+
 void UI_DisplayMenu(void)
 {
+    // Category top-level screen: show before any item rendering
+    if (USE_CAT_MENU() && gMenuCategory == MENU_CAT_NONE) {
+        UI_DisplayMenuCat();
+        ST7565_BlitFullScreen();
+        return;
+    }
+
     const unsigned int menu_list_width = 6; // kept for fallback layout (ENABLE_CUSTOM_MENU_LAYOUT off)
     const unsigned int menu_item_x1    = 0;
     const unsigned int menu_item_x2    = LCD_WIDTH - 1;
@@ -813,7 +885,11 @@ void UI_DisplayMenu(void)
         memcpy(gFrameBuffer[0] + (8 * menu_list_width) + 1, BITMAP_CurrentIndicator, sizeof(BITMAP_CurrentIndicator));
 
     // draw the menu index number/count
-    sprintf(String, "%2u.%u", 1 + gMenuCursor, gMenuListCount);
+    sprintf(String, "%2u.%u",
+        1u + (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT
+              ? (unsigned)(gMenuCursor - gMenuCatFirstIdx[gMenuCategory])
+              : (unsigned)gMenuCursor),
+        gMenuListCount);
 
     UI_PrintStringSmallNormal(String, 2, 0, 6);
 
@@ -827,7 +903,11 @@ void UI_DisplayMenu(void)
         // vertically centred in the 16px title bar.  ST7565 column bytes are LSB-first (bit0=top):
         //   b << 4  moves character pixels to rows 4-7 of page 0
         //   b >> 4  places the remainder  into rows 0-3 of page 1
-        sprintf(String, "%u/%u", 1 + gMenuCursor, gMenuListCount);
+        sprintf(String, "%u/%u",
+            1u + (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT
+                  ? (unsigned)(gMenuCursor - gMenuCatFirstIdx[gMenuCategory])
+                  : (unsigned)gMenuCursor),
+            gMenuListCount);
         {
             const uint8_t cnt_len = (uint8_t)strlen(String);
             const uint8_t cnt_x   = (uint8_t)(LCD_WIDTH - (unsigned)cnt_len * 7u);

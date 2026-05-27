@@ -171,6 +171,22 @@ void Main(void)
         gMenuListCount++;
     }
 
+    // Build per-category lookup tables used by the two-level category navigation.
+    // Initialise with "not found" sentinel values.
+    memset(gMenuCatFirstIdx,  0xFF, sizeof(gMenuCatFirstIdx));
+    memset(gMenuCatItemCount, 0,    sizeof(gMenuCatItemCount));
+    for (uint8_t i = 0; i < gMenuListCount; i++) {
+        const uint8_t cat = MenuList[i].cat_id;
+        if (cat < MENU_CAT_COUNT) {
+            if (gMenuCatFirstIdx[cat] == 0xFF)
+                gMenuCatFirstIdx[cat] = i;
+            gMenuCatItemCount[cat]++;
+        }
+    }
+    // When category navigation is active the top-level "list" has MENU_CAT_COUNT entries
+    if (USE_CAT_MENU())
+        gMenuListCount = MENU_CAT_COUNT;
+
     // wait for user to release all butts before moving on
     if (GPIO_IsPttPressed() ||
          KEYBOARD_Poll() != KEY_INVALID ||

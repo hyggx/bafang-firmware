@@ -85,10 +85,10 @@ void MENU_StartCssScan(void)
 void MENU_CssScanFound(void)
 {
     if(gScanCssResultType == CODE_TYPE_DIGITAL || gScanCssResultType == CODE_TYPE_REVERSE_DIGITAL) {
-        gMenuCursor = UI_MENU_GetMenuIdx(MENU_R_DCS);
+        UI_MENU_GoToItem(MENU_R_DCS);
     }
     else if(gScanCssResultType == CODE_TYPE_CONTINUOUS_TONE) {
-        gMenuCursor = UI_MENU_GetMenuIdx(MENU_R_CTCS);
+        UI_MENU_GoToItem(MENU_R_CTCS);
     }
 
     MENU_ShowCurrentSetting();
@@ -1580,6 +1580,24 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
     if (!gIsInSubMenu)
     {
+        // Category top-level: digit 1-5 selects and enters a category directly
+        if (USE_CAT_MENU() && gMenuCategory == MENU_CAT_NONE) {
+            gInputBoxIndex = 0;
+            // compute single digit (KEY_0=0 ... KEY_9=9)
+            const uint8_t digit = (uint8_t)(Key - KEY_0);
+            if (digit >= 1 && digit <= MENU_CAT_COUNT) {
+                gMenuCatCursor = digit - 1u;
+                gMenuCategory  = gMenuCatCursor;
+                gMenuCursor    = gMenuCatFirstIdx[gMenuCatCursor];
+                gMenuListCount = gMenuCatItemCount[gMenuCatCursor];
+                gFlagRefreshSetting   = true;
+                gRequestDisplayScreen = DISPLAY_MENU;
+            } else {
+                gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+            }
+            return;
+        }
+
         switch (gInputBoxIndex)
         {
             case 2:
@@ -1589,7 +1607,9 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
                 if (Value > 0 && Value <= gMenuListCount)
                 {
-                    gMenuCursor         = Value - 1;
+                    gMenuCursor = (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT)
+                        ? (uint8_t)(gMenuCatFirstIdx[gMenuCategory] + Value - 1u)
+                        : (uint8_t)(Value - 1u);
                     gFlagRefreshSetting = true;
                     return;
                 }
@@ -1604,7 +1624,9 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                 Value = gInputBox[0];
                 if (Value > 0 && Value <= gMenuListCount)
                 {
-                    gMenuCursor         = Value - 1;
+                    gMenuCursor = (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT)
+                        ? (uint8_t)(gMenuCatFirstIdx[gMenuCategory] + Value - 1u)
+                        : (uint8_t)(Value - 1u);
                     gFlagRefreshSetting = true;
                     return;
                 }
@@ -1795,6 +1817,15 @@ Skip:
             gAnotherVoiceID = VOICE_ID_CANCEL;
         #endif
 
+        // If we are inside a category, EXIT goes back to the category top-level screen
+        if (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT) {
+            gMenuCategory  = MENU_CAT_NONE;
+            gMenuListCount = MENU_CAT_COUNT;
+            gRequestDisplayScreen = DISPLAY_MENU;
+            gPttWasReleased = true;
+            return;
+        }
+
         gRequestDisplayScreen = DISPLAY_MAIN;
 
         if (gEeprom.BACKLIGHT_TIME == 0) // backlight set to always off
@@ -1826,6 +1857,16 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 
     if (!gIsInSubMenu)
     {
+        // Category top-level: MENU key enters the highlighted category
+        if (USE_CAT_MENU() && gMenuCategory == MENU_CAT_NONE) {
+            gMenuCategory  = gMenuCatCursor;
+            gMenuCursor    = gMenuCatFirstIdx[gMenuCatCursor];
+            gMenuListCount = gMenuCatItemCount[gMenuCatCursor];
+            gFlagRefreshSetting = true;
+            gRequestDisplayScreen = DISPLAY_MENU;
+            return;
+        }
+
         const int m = UI_MENU_GetCurrentMenuId();
 
         if (m == MENU_UPCODE 
@@ -2061,7 +2102,22 @@ static void MENU_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 
     if (!gIsInSubMenu)
     {
-        gMenuCursor = NUMBER_AddWithWraparound(gMenuCursor, -Direction, 0, gMenuListCount - 1);
+        if (USE_CAT_MENU() && gMenuCategory == MENU_CAT_NONE) {
+            // Top-level category selection
+            gMenuCatCursor = (uint8_t)NUMBER_AddWithWraparound(gMenuCatCursor, -Direction, 0, MENU_CAT_COUNT - 1);
+            gRequestDisplayScreen = DISPLAY_MENU;
+            return;
+        }
+
+        if (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT) {
+            // Navigate within the current category bounds
+            const uint8_t first = gMenuCatFirstIdx[gMenuCategory];
+            const uint8_t last  = (uint8_t)(first + gMenuCatItemCount[gMenuCategory] - 1u);
+            gMenuCursor = (uint8_t)NUMBER_AddWithWraparound(gMenuCursor, -Direction, first, last);
+        } else {
+            // Flat-list navigation (gF_LOCK mode)
+            gMenuCursor = NUMBER_AddWithWraparound(gMenuCursor, -Direction, 0, gMenuListCount - 1);
+        }
 
         gFlagRefreshSetting = true;
 
