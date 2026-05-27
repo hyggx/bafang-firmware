@@ -2117,6 +2117,12 @@ static bool HandleUserInput()
     kbd.prev = kbd.current;
     kbd.current = KEYBOARD_GetKey();
 
+#ifdef ENABLE_FEAT_F4HWN_SLEEP
+    // Reset auto-off countdown on any new keypress (user is active).
+    if (kbd.current != KEY_INVALID && kbd.prev == KEY_INVALID)
+        gSleepModeCountdown_500ms = gSetting_set_off * 120;
+#endif
+
     if (kbd.current != KEY_INVALID && kbd.current == kbd.prev)
     {
         if (kbd.counter < 16)
@@ -2480,11 +2486,11 @@ static void Tick()
         BACKLIGHT_Update();
     }
 
-#ifdef ENABLE_SCAN_RANGES
     if (gNextTimeslice_500ms)
     {
         gNextTimeslice_500ms = false;
 
+#ifdef ENABLE_SCAN_RANGES
         // For large scans (>128 steps), refresh display periodically but
         // wait for the full sweep to complete before triggering listen mode.
         // This avoids showing stale rssiHistory data from a previous sweep.
@@ -2493,8 +2499,32 @@ static void Tick()
             redrawScreen = true;
             preventKeypress = false;
         }
-    }
 #endif
+
+        // Backlight timeout — mirrors the 500ms handler in APP_Update.
+        if (gBacklightCountdown_500ms > 0 && --gBacklightCountdown_500ms == 0
+                && gEeprom.BACKLIGHT_TIME < 7) {
+            BACKLIGHT_TurnOff();
+        }
+
+#ifdef ENABLE_FEAT_F4HWN_SLEEP
+        // Auto-off timeout — mirrors the 500ms handler in APP_Update.
+        if (gSleepModeCountdown_500ms > 0 && --gSleepModeCountdown_500ms == 0) {
+            gBacklightCountdown_500ms = 0;
+            gPowerSave_10ms = 1;
+            gWakeUp = true;
+            BACKLIGHT_SetBrightness(0);
+            ST7565_ShutDown();
+            DeInitSpectrum(); // exits spectrum while-loop cleanly
+        } else if (gSleepModeCountdown_500ms != 0
+                   && gSleepModeCountdown_500ms < 21
+                   && gSetting_set_off != 0) {
+            // blink backlight as warning in the last 10 s before sleep
+            BACKLIGHT_SetBrightness(gSleepModeCountdown_500ms % 4 == 0
+                                    ? gEeprom.BACKLIGHT_MAX : 0);
+        }
+#endif
+    }
 
     if (!preventKeypress)
     {
@@ -2612,5 +2642,10 @@ void APP_RunSpectrum()
         Tick();
     }
 
-    BACKLIGHT_TurnOn();
+    // Skip backlight restore when auto-off fired (gWakeUp==true);
+    // normal app flow will handle the sleep/wake cycle from here.
+#ifdef ENABLE_FEAT_F4HWN_SLEEP
+    if (!gWakeUp)
+#endif
+        BACKLIGHT_TurnOn();
 }
