@@ -811,19 +811,19 @@ static void UI_DisplayMenuCat(void)
         "信号", "频道", "DTMF", "显示", "系统"
     };
 
-    // Big font: 16 px per row = 2 pages.  Fit 4 rows on screen (4*2=8 pages).
-    // Scroll so the selected item is always visible.
-    const uint8_t visible = 4u;
+    // Layout: 3 big-font items (16px each = 2 pages) on pages 0-5 (48px).
+    // Page 6 (8px): empty gap.
+    // Page 7 (8px): scroll-indicator arrow triangles.
+    const uint8_t visible = 3u;
     uint8_t scroll = 0u;
     if (gMenuCatCursor >= visible)
-        scroll = gMenuCatCursor - visible + 1u;
+        scroll = (uint8_t)(gMenuCatCursor - visible + 1u);
 
     UI_DisplayClear();
 
     for (uint8_t vi = 0u; vi < visible; vi++) {
-        const uint8_t c = scroll + vi;
-        if (c >= MENU_CAT_COUNT)
-            break;
+        const uint8_t c    = scroll + vi;
+        if (c >= MENU_CAT_COUNT) break;
         const uint8_t page = (uint8_t)(vi * 2u);
 
         const char *name = (g_lang == LANG_ZH) ? kCatNameZh[c] : kCatNameEn[c];
@@ -832,20 +832,48 @@ static void UI_DisplayMenuCat(void)
         else
             UI_PrintString(name, 4, 0, page, 8);
 
-        // Invert the selected row (both pages of the big-font row)
         if (c == gMenuCatCursor) {
             for (uint8_t col = 0u; col < LCD_WIDTH; col++) {
-                gFrameBuffer[page][col]     ^= 0xFFu;
+                gFrameBuffer[page][col]      ^= 0xFFu;
                 gFrameBuffer[page + 1u][col] ^= 0xFFu;
             }
         }
     }
 
-    // Scroll indicator arrows (small font, right edge) when list is clipped
-    if (scroll > 0u)
-        UI_PrintStringSmallNormal("^", LCD_WIDTH - 6, 0, 0);
-    if (scroll + visible < MENU_CAT_COUNT)
-        UI_PrintStringSmallNormal("v", LCD_WIDTH - 6, 0, 7);
+    // Thin separator: bottom pixel of page 5 (drawn after inversion so it is
+    // always visible regardless of which item is selected).
+    for (uint8_t col = 0u; col < LCD_WIDTH; col++)
+        gFrameBuffer[5][col] |= 0x80u;
+
+    // Pixel-art arrow triangles rendered in page 7.
+    //   kArrowDown: flat top at bit-0, tip (1 px) at bit-4 → points downward
+    //   kArrowUp:   tip (1 px) at bit-0, flat bottom at bit-4 → points upward
+    // Each arrow is 9 columns wide, centred horizontally.
+    static const uint8_t kArrowDown[9] = {
+        0x01u, 0x03u, 0x07u, 0x0Fu, 0x1Fu, 0x0Fu, 0x07u, 0x03u, 0x01u
+    };
+    static const uint8_t kArrowUp[9] = {
+        0x10u, 0x18u, 0x1Cu, 0x1Eu, 0x1Fu, 0x1Eu, 0x1Cu, 0x18u, 0x10u
+    };
+
+    const bool more_below = (scroll + visible < MENU_CAT_COUNT);
+    const bool more_above = (scroll > 0u);
+
+    if (more_below && more_above) {
+        // Both arrows: up on the left, down on the right
+        for (uint8_t i = 0u; i < 9u; i++) {
+            gFrameBuffer[7][10u  + i] = kArrowUp[i];
+            gFrameBuffer[7][109u + i] = kArrowDown[i];
+        }
+    } else if (more_below) {
+        const uint8_t x = (uint8_t)(LCD_WIDTH / 2u - 4u);   // centred at col 64
+        for (uint8_t i = 0u; i < 9u; i++)
+            gFrameBuffer[7][x + i] = kArrowDown[i];
+    } else if (more_above) {
+        const uint8_t x = (uint8_t)(LCD_WIDTH / 2u - 4u);
+        for (uint8_t i = 0u; i < 9u; i++)
+            gFrameBuffer[7][x + i] = kArrowUp[i];
+    }
 }
 
 void UI_DisplayMenu(void)
