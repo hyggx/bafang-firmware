@@ -804,38 +804,48 @@ static void UI_MENU_DrawTopRightRoundedBadge(const char *text, const uint8_t lin
 // glyph height (12 px) does not fit in a single 8-px page row.
 static void UI_DisplayMenuCat(void)
 {
-    static const char * const kCatName[MENU_CAT_COUNT] = {
+    static const char * const kCatNameEn[MENU_CAT_COUNT] = {
         "Signal", "Channel", "DTMF", "Display", "System"
     };
+    static const char * const kCatNameZh[MENU_CAT_COUNT] = {
+        "信号", "频道", "DTMF", "显示", "系统"
+    };
+
+    // Big font: 16 px per row = 2 pages.  Fit 4 rows on screen (4*2=8 pages).
+    // Scroll so the selected item is always visible.
+    const uint8_t visible = 4u;
+    uint8_t scroll = 0u;
+    if (gMenuCatCursor >= visible)
+        scroll = gMenuCatCursor - visible + 1u;
 
     UI_DisplayClear();
 
-    for (uint8_t c = 0; c < MENU_CAT_COUNT; c++) {
-        // Bullet character '>' in front of selected category
-        if (c == gMenuCatCursor) {
-            UI_PrintStringSmallNormal(">", 1, 0, c);
-        }
-        // Category name, left side
-        UI_PrintStringSmallNormal(kCatName[c], 9, 0, c);
+    for (uint8_t vi = 0u; vi < visible; vi++) {
+        const uint8_t c = scroll + vi;
+        if (c >= MENU_CAT_COUNT)
+            break;
+        const uint8_t page = (uint8_t)(vi * 2u);
 
-        // Item count badge "[nn]" on the right
-        char badge[6];
-        sprintf(badge, "[%2u]", gMenuCatItemCount[c]);
-        UI_PrintStringSmallNormal(badge, LCD_WIDTH - 30, 0, c);
+        const char *name = (g_lang == LANG_ZH) ? kCatNameZh[c] : kCatNameEn[c];
+        if (g_lang == LANG_ZH)
+            UI_PrintStringUTF8(name, 4, page);
+        else
+            UI_PrintString(name, 4, 0, page, 8);
 
-        // Invert the selected row
+        // Invert the selected row (both pages of the big-font row)
         if (c == gMenuCatCursor) {
-            for (uint8_t col = 0; col < LCD_WIDTH; col++)
-                gFrameBuffer[c][col] ^= 0xFF;
+            for (uint8_t col = 0u; col < LCD_WIDTH; col++) {
+                gFrameBuffer[page][col]     ^= 0xFFu;
+                gFrameBuffer[page + 1u][col] ^= 0xFFu;
+            }
         }
     }
 
-    // Separator line on page 5
-    for (uint8_t col = 0; col < LCD_WIDTH; col++)
-        gFrameBuffer[5][col] = 0x08; // single middle pixel row
-
-    // Hint on page 6
-    UI_PrintStringSmallNormal("MENU:Enter  EXIT:Back", 1, 0, 6);
+    // Scroll indicator arrows (small font, right edge) when list is clipped
+    if (scroll > 0u)
+        UI_PrintStringSmallNormal("^", LCD_WIDTH - 6, 0, 0);
+    if (scroll + visible < MENU_CAT_COUNT)
+        UI_PrintStringSmallNormal("v", LCD_WIDTH - 6, 0, 7);
 }
 
 void UI_DisplayMenu(void)
