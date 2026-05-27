@@ -401,7 +401,10 @@ int16_t BK4819_GetRSSI_dBm(void)
     // REG_67[8:0] has 0.5 dB/LSB resolution; add 1 before dividing to round to
     // nearest 1 dBm instead of always truncating downward (systematic −0.5 dBm
     // bias on every odd raw value).
-    return (int16_t)((rssi + 1u) / 2) - 160;// - BK4819_GetRxGain_dB();
+    // Subtract AGC gain so the result is antenna-port power, not IF power.
+    // BK4819_GetRxGain_dB() returns 0 for weak signals (max gain) and up to
+    // -93 for strong signals; subtracting a negative value adds the correction.
+    return (int16_t)((rssi + 1u) / 2) - 160 - BK4819_GetRxGain_dB();
 }
 
 void BK4819_ToggleGpioOut(BK4819_GPIO_PIN_t Pin, bool bSet)

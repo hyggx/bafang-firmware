@@ -981,19 +981,19 @@ void DisplayRSSIBar(const bool now)
     // else if (rssi_dBm >= -141) s_level = 1;  // S1  = -141 dBm
     // else                       s_level = 0;  // S0 (below -141 dBm)
 
-    if (rssi_dBm >= -93)
+    // IARU HF / practical VHF/UHF: S9 = -73 dBm, S0 = -127 dBm, 6 dB/unit
+    if (rssi_dBm >= -73)
         s_level = 9;
-    else if (rssi_dBm < -141)
+    else if (rssi_dBm <= -127)
         s_level = 0;
-    else 
-        s_level = (rssi_dBm + 147) / 6;
+    else
+        s_level = (uint8_t)((rssi_dBm + 127) * 9 / 54);
 
     if (s_level == 9) {
-        // Compute over-S9 dB directly
-        overS9dBm  = (uint8_t)MIN(rssi_dBm - (-93), 40);
-        overS9Bars = overS9dBm / 10;
+        overS9dBm  = (uint8_t)MIN(rssi_dBm - (-73), 99);
+        overS9Bars = MIN(overS9dBm / 10, 4);
     }
-    const int16_t display_rssi_dBm = (rssi_dBm > -53) ? -53 : rssi_dBm;
+    const int16_t display_rssi_dBm = rssi_dBm;
 #else
     const int16_t s0_dBm   = -gEeprom.S0_LEVEL;                  // S0 .. base level
     const int16_t rssi_dBm =
