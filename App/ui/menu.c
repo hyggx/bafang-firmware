@@ -224,7 +224,6 @@ const t_menu_item MenuList[] =
 #endif
     {"ChList",      MENU_LIST_CH       },
     {"ChSave",      MENU_MEM_CH        }, // was "MEM-CH"
-    {"ChDele",      MENU_DEL_CH        }, // was "DEL-CH"
     {"ChName",      MENU_MEM_NAME      },
 
     {"ScList",       MENU_S_LIST       },
@@ -289,9 +288,7 @@ const t_menu_item MenuList[] =
     #endif
 #endif
     {"VOX",         MENU_VOX           },
-#ifdef ENABLE_FEAT_F4HWN
-    {"SysInf",      MENU_VOL           }, // was "VOL"
-#else
+#ifndef ENABLE_FEAT_F4HWN
     {"BatVol",      MENU_VOL           }, // was "VOL"
 #endif
     {"RxMode",      MENU_TDR           },
@@ -325,7 +322,9 @@ const t_menu_item MenuList[] =
 #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
     {"SetScn",      MENU_SET_SCN       },
 #endif
+    {"ChDele",      MENU_DEL_CH        }, // was "DEL-CH"
     {"Lang",        MENU_LANG          }, // UI language EN/ZH
+    {"SysInf",      MENU_VOL           }, // system info (last)
 #endif
     // hidden menu items from here on
     // enabled if pressing both the PTT and upper side button at power-on
