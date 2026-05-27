@@ -1588,7 +1588,12 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
             if (digit >= 1 && digit <= MENU_CAT_COUNT) {
                 gMenuCatCursor = digit - 1u;
                 gMenuCategory  = gMenuCatCursor;
-                gMenuCursor    = gMenuCatFirstIdx[gMenuCatCursor];
+                {
+                    const uint8_t first = gMenuCatFirstIdx[gMenuCatCursor];
+                    const uint8_t cnt   = gMenuCatItemCount[gMenuCatCursor];
+                    const uint8_t saved = gMenuCatSavedCursor[gMenuCatCursor];
+                    gMenuCursor = (saved != 0xFF && saved >= first && saved < first + cnt) ? saved : first;
+                }
                 gMenuListCount = gMenuCatItemCount[gMenuCatCursor];
                 gFlagRefreshSetting   = true;
                 gRequestDisplayScreen = DISPLAY_MENU;
@@ -1819,6 +1824,7 @@ Skip:
 
         // If we are inside a category, EXIT goes back to the category top-level screen
         if (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT) {
+            gMenuCatSavedCursor[gMenuCategory] = gMenuCursor; // remember position
             gMenuCategory  = MENU_CAT_NONE;
             gMenuListCount = MENU_CAT_COUNT;
             gRequestDisplayScreen = DISPLAY_MENU;
@@ -1860,7 +1866,12 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
         // Category top-level: MENU key enters the highlighted category
         if (USE_CAT_MENU() && gMenuCategory == MENU_CAT_NONE) {
             gMenuCategory  = gMenuCatCursor;
-            gMenuCursor    = gMenuCatFirstIdx[gMenuCatCursor];
+            {
+                const uint8_t first = gMenuCatFirstIdx[gMenuCatCursor];
+                const uint8_t cnt   = gMenuCatItemCount[gMenuCatCursor];
+                const uint8_t saved = gMenuCatSavedCursor[gMenuCatCursor];
+                gMenuCursor = (saved != 0xFF && saved >= first && saved < first + cnt) ? saved : first;
+            }
             gMenuListCount = gMenuCatItemCount[gMenuCatCursor];
             gFlagRefreshSetting = true;
             gRequestDisplayScreen = DISPLAY_MENU;

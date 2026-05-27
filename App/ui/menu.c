@@ -704,6 +704,7 @@ uint8_t gMenuCategory   = MENU_CAT_NONE; // MENU_CAT_NONE = top-level category s
 uint8_t gMenuCatCursor  = 0;             // highlighted category at top level
 uint8_t gMenuCatFirstIdx[MENU_CAT_COUNT];
 uint8_t gMenuCatItemCount[MENU_CAT_COUNT];
+uint8_t gMenuCatSavedCursor[MENU_CAT_COUNT]; // last cursor position per category (0xFF = unvisited)
 int UI_MENU_GetCurrentMenuId() {
     if(gMenuCursor < ARRAY_SIZE(MenuList))
         return MenuList[gMenuCursor].menu_id;

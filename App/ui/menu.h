@@ -259,6 +259,7 @@ extern uint8_t           gMenuCategory;      // MENU_CAT_NONE = top level; 0-4 =
 extern uint8_t           gMenuCatCursor;     // selected category at top level (0 .. MENU_CAT_COUNT-1)
 extern uint8_t           gMenuCatFirstIdx[MENU_CAT_COUNT]; // first MenuList[] index per category
 extern uint8_t           gMenuCatItemCount[MENU_CAT_COUNT];// visible item count per category
+extern uint8_t           gMenuCatSavedCursor[MENU_CAT_COUNT]; // last visited cursor per category
 
 extern int32_t           gSubMenuSelection;
                          

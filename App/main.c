@@ -173,8 +173,9 @@ void Main(void)
 
     // Build per-category lookup tables used by the two-level category navigation.
     // Initialise with "not found" sentinel values.
-    memset(gMenuCatFirstIdx,  0xFF, sizeof(gMenuCatFirstIdx));
-    memset(gMenuCatItemCount, 0,    sizeof(gMenuCatItemCount));
+    memset(gMenuCatFirstIdx,    0xFF, sizeof(gMenuCatFirstIdx));
+    memset(gMenuCatItemCount,    0,    sizeof(gMenuCatItemCount));
+    memset(gMenuCatSavedCursor,  0xFF, sizeof(gMenuCatSavedCursor));
     for (uint8_t i = 0; i < gMenuListCount; i++) {
         const uint8_t cat = MenuList[i].cat_id;
         if (cat < MENU_CAT_COUNT) {
