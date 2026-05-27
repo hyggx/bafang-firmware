@@ -1442,7 +1442,7 @@ void UI_DisplayMain(void)
                 }
             }
             else {
-                if(RxOnVfofrequency == frequency && !isMainOnly()) {
+                if(RxOnVfofrequency == frequency && !isMainOnly() && line != RxLine) {
                     //UI_PrintStringSmallNormal(">>", 8, 0, line);
                     //memcpy(p_line0 + 14, BITMAP_VFO_Default, sizeof(BITMAP_VFO_Default));
                     GUI_DisplaySmallest(">>", 8, RxLine == 0 ? 1 : 33, false, true);
@@ -1465,12 +1465,12 @@ void UI_DisplayMain(void)
             const unsigned int x = 1;
             const bool inputting = gInputBoxIndex != 0 && gEeprom.TX_VFO == vfo_num;
             if (!inputting || gScanStateDir != SCAN_OFF)
-                sprintf(String, "%03u", gEeprom.ScreenChannel[vfo_num] + 1);
+                sprintf(String, "M%u", gEeprom.ScreenChannel[vfo_num] + 1);
             else
-                sprintf(String, "%.3s", INPUTBOX_GetAsciiAlignRight() + 5);  // show the input text
+                sprintf(String, "M%.3s", INPUTBOX_GetAscii());  // show the input text
 
             //if (gSetting_set_gui) {
-                UI_PrintStringSmallNormalInverse(String, x, 0, line + 1);
+                UI_PrintStringSmallNormal(String, x, 0, line + 1);
             /*
             }
             else
@@ -1496,7 +1496,7 @@ void UI_DisplayMain(void)
 
             sprintf(String, over1GHz ? "F%u+" : "F%u", f);
             //if (gSetting_set_gui) {
-                UI_PrintStringSmallNormalInverse(String, x, 0, line + 1);
+                UI_PrintStringSmallNormal(String, x, 0, line + 1);
             /*
             }
             else

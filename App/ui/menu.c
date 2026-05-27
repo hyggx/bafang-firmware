@@ -832,7 +832,7 @@ static void UI_DisplayMenuCat(void)
 
         // Selection indicator: a "<" at the right edge (no background inversion)
         if (c == gMenuCatCursor)
-            UI_PrintString("<", LCD_WIDTH - 8, 0, page, 8);
+            UI_PrintString("<", LCD_WIDTH - 14, 0, page, 8);
     }
 }
 
