@@ -811,9 +811,7 @@ static void UI_DisplayMenuCat(void)
         "信号", "频道", "DTMF", "显示", "系统"
     };
 
-    // Layout: 3 big-font items (16px each = 2 pages) on pages 0-5 (48px).
-    // Page 6 (8px): empty gap.
-    // Page 7 (8px): scroll-indicator arrow triangles.
+    // 3 big-font items (16px each = 2 pages) on pages 0-5; pages 6-7 empty.
     const uint8_t visible = 3u;
     uint8_t scroll = 0u;
     if (gMenuCatCursor >= visible)
@@ -832,47 +830,9 @@ static void UI_DisplayMenuCat(void)
         else
             UI_PrintString(name, 4, 0, page, 8);
 
-        if (c == gMenuCatCursor) {
-            for (uint8_t col = 0u; col < LCD_WIDTH; col++) {
-                gFrameBuffer[page][col]      ^= 0xFFu;
-                gFrameBuffer[page + 1u][col] ^= 0xFFu;
-            }
-        }
-    }
-
-    // Thin separator: bottom pixel of page 5 (drawn after inversion so it is
-    // always visible regardless of which item is selected).
-    for (uint8_t col = 0u; col < LCD_WIDTH; col++)
-        gFrameBuffer[5][col] |= 0x80u;
-
-    // Pixel-art arrow triangles rendered in page 7.
-    //   kArrowDown: flat top at bit-0, tip (1 px) at bit-4 → points downward
-    //   kArrowUp:   tip (1 px) at bit-0, flat bottom at bit-4 → points upward
-    // Each arrow is 9 columns wide, centred horizontally.
-    static const uint8_t kArrowDown[9] = {
-        0x01u, 0x03u, 0x07u, 0x0Fu, 0x1Fu, 0x0Fu, 0x07u, 0x03u, 0x01u
-    };
-    static const uint8_t kArrowUp[9] = {
-        0x10u, 0x18u, 0x1Cu, 0x1Eu, 0x1Fu, 0x1Eu, 0x1Cu, 0x18u, 0x10u
-    };
-
-    const bool more_below = (scroll + visible < MENU_CAT_COUNT);
-    const bool more_above = (scroll > 0u);
-
-    if (more_below && more_above) {
-        // Both arrows: up on the left, down on the right
-        for (uint8_t i = 0u; i < 9u; i++) {
-            gFrameBuffer[7][10u  + i] = kArrowUp[i];
-            gFrameBuffer[7][109u + i] = kArrowDown[i];
-        }
-    } else if (more_below) {
-        const uint8_t x = (uint8_t)(LCD_WIDTH / 2u - 4u);   // centred at col 64
-        for (uint8_t i = 0u; i < 9u; i++)
-            gFrameBuffer[7][x + i] = kArrowDown[i];
-    } else if (more_above) {
-        const uint8_t x = (uint8_t)(LCD_WIDTH / 2u - 4u);
-        for (uint8_t i = 0u; i < 9u; i++)
-            gFrameBuffer[7][x + i] = kArrowUp[i];
+        // Selection indicator: a "<" at the right edge (no background inversion)
+        if (c == gMenuCatCursor)
+            UI_PrintString("<", LCD_WIDTH - 8, 0, page, 8);
     }
 }
 
