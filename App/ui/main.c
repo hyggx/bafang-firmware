@@ -1371,6 +1371,9 @@ void UI_DisplayMain(void)
 
         uint32_t frequency = gEeprom.VfoInfo[vfo_num].pRX->Frequency;
 
+        const bool show_freq_in_bar = IS_MR_CHANNEL(gEeprom.ScreenChannel[vfo_num]) &&
+                                      gEeprom.CHANNEL_DISPLAY_MODE == MDF_NAME_FREQ;
+
         if (gCurrentFunction == FUNCTION_TRANSMIT)
         {   // transmitting
 
@@ -1702,12 +1705,11 @@ void UI_DisplayMain(void)
                             }
                             else
                             {
-                                if(activeTxVFO == vfo_num) {
-                                    UI_PrintStringSmallBold(String, 32 + 4, 0, line);
-                                }
-                                else
-                                {
-                                    UI_PrintStringSmallNormal(String, 32 + 4, 0, line);     
+                                if (g_lang != LANG_EN) {
+                                    UI_PrintStringUTF8(String, 33, line);
+                                } else {
+                                    String[10] = 0;
+                                    UI_PrintString(String, 33, 0, line, 8);
                                 }
                             }
 #else
@@ -1733,8 +1735,7 @@ void UI_DisplayMain(void)
                             }
                             else
                             {
-                                sprintf(String, "%03u.%05u", frequency / 100000, frequency % 100000);
-                                UI_PrintStringSmallNormal(String, 32 + 4, 0, line + 1);
+                                // frequency is shown in info bar for MDF_NAME_FREQ
                             }
 #else                           // show the channel frequency below the channel number/name
                             sprintf(String, "%03u.%05u", frequency / 100000, frequency % 100000);
@@ -1883,7 +1884,12 @@ void UI_DisplayMain(void)
             UI_PrintStringSmallNormal(s, LCD_WIDTH + 22, 0, line + 1);
             UI_PrintStringSmallNormal(t, LCD_WIDTH + 2, 0, line + 1);
 
-            if (isMainOnly() && !gDTMF_InputMode)
+            if (show_freq_in_bar)
+            {
+                sprintf(String, "%03u.%05u", frequency / 100000, frequency % 100000);
+                UI_PrintStringSmallNormal(String, LCD_WIDTH + 36, 0, line + 1);
+            }
+            else if (isMainOnly() && !gDTMF_InputMode)
             {
                 if(shift == 0)
                 {
@@ -1911,7 +1917,12 @@ void UI_DisplayMain(void)
                 GUI_DisplaySmallest(t, 3, line == 0 ? 17 : 49, false, true);
             }
 
-            GUI_DisplaySmallest(String, 68 + shift, line == 0 ? 17 : 49, false, true);
+            if (show_freq_in_bar) {
+                sprintf(String, "%03u.%05u", frequency / 100000, frequency % 100000);
+                GUI_DisplaySmallest(String, 68, line == 0 ? 17 : 49, false, true);
+            } else {
+                GUI_DisplaySmallest(String, 68 + shift, line == 0 ? 17 : 49, false, true);
+            }
 
             //sprintf(String, "%d.%02u", vfoInfo->StepFrequency / 100, vfoInfo->StepFrequency % 100);
             //GUI_DisplaySmallest(String, 91, line == 0 ? 2 : 34, false, true);
@@ -1920,7 +1931,7 @@ void UI_DisplayMain(void)
         UI_PrintStringSmallNormal(s, LCD_WIDTH + 24, 0, line + 1);
 #endif
 
-        if (state == VFO_STATE_NORMAL || state == VFO_STATE_ALARM)
+        if (!show_freq_in_bar && (state == VFO_STATE_NORMAL || state == VFO_STATE_ALARM))
         {   // show the TX power
             uint8_t currentPower = vfoInfo->OUTPUT_POWER < 4 ? vfoInfo->OUTPUT_POWER : 0;
 
@@ -1935,7 +1946,6 @@ void UI_DisplayMain(void)
                 GUI_DisplaySmallest(pwr_long[currentPower], 24, line == 0 ? 17 : 49, false, true);
             }
         }
-
         if (vfoInfo->freq_config_RX.Frequency != vfoInfo->freq_config_TX.Frequency)
         {   // show the TX offset symbol
             int i = vfoInfo->TX_OFFSET_FREQUENCY_DIRECTION % 3;
@@ -2004,12 +2014,12 @@ void UI_DisplayMain(void)
                 narrower = 1;
             }
 
-            if (gSetting_set_gui)
+            if (gSetting_set_gui && !show_freq_in_bar)
             {
                 const char *bandWidthNames[] = {"W", "N", "N+"};
                 UI_PrintStringSmallNormal(bandWidthNames[displayBandwidth + narrower], LCD_WIDTH + 80, 0, line + 1);
             }
-            else
+            else if (!show_freq_in_bar)
             {
                 const char *bandWidthNames[] = {"WIDE", "NAR", "NAR+"};
                 GUI_DisplaySmallest(bandWidthNames[displayBandwidth + narrower], 91, line == 0 ? 17 : 49, false, true);
@@ -2070,7 +2080,7 @@ void UI_DisplayMain(void)
             }
         }
         */
-        if (isMainVFO) {
+        if (isMainVFO && !show_freq_in_bar) {
            if (gMonitor) {
                 strcpy(String, "MONI");
            } else {
