@@ -1,9 +1,11 @@
 /* Auto-generated from cjk_font.bin — do not edit.
- * Regenerate: python3 tools/gen_cjk_font.py gen --bdf <wenquanyi_9pt.bdf>
+ * Regenerate: python3 tools/gen_cjk_font.py gen --bdf tools/wenquanyi_9pt.bdf
  *             --subset App/l10n/strings_zh.c \
  *             --subset App/ui/menu_sub_values_zh.c \
+ *             --subset App/ui/menu.c \
  *             --out tools/cjk_font.bin
  * then: python3 tools/gen_cjk_font.py dump-c tools/cjk_font.bin > App/l10n/cjk_font_data.c
+ * NOTE: App/ui/menu.c contains category names (kCatNameZh[]) not in strings_zh.c — must be included.
  * Format: FM font v1, 6204 bytes, 221 glyphs, see App/l10n/cjk_font.h.
  */
 #include <stdint.h>

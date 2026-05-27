@@ -862,10 +862,17 @@ void UI_DisplayMenu(void)
 
 #ifndef ENABLE_CUSTOM_MENU_LAYOUT
         // original (fallback) menu layout — sidebar list + right value zone
-    for (i = 0; i < 3; i++)
-        if (gMenuCursor > 0 || i > 0)
-            if ((gMenuListCount - 1) != gMenuCursor || i != 2)
-                UI_PrintString(MenuList[gMenuCursor + i - 1].name, 0, 0, i * 2, 8);
+    {
+        // Use a category-local cursor for bounds checks so we never render
+        // items from adjacent categories or hidden entries past the end.
+        const int local_cursor = (USE_CAT_MENU() && gMenuCategory < MENU_CAT_COUNT)
+            ? (int)(gMenuCursor - gMenuCatFirstIdx[gMenuCategory])
+            : (int)gMenuCursor;
+        for (i = 0; i < 3; i++)
+            if (local_cursor > 0 || i > 0)
+                if ((gMenuListCount - 1) != local_cursor || i != 2)
+                    UI_PrintString(MenuList[gMenuCursor + i - 1].name, 0, 0, i * 2, 8);
+    }
 
     // invert the current menu list item pixels
     for (i = 0; i < (8 * menu_list_width); i++)
