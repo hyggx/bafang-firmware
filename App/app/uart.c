@@ -31,6 +31,9 @@
 #include "driver/crc.h"
 #include "driver/eeprom.h"
 #include "driver/gpio.h"
+#ifdef ENABLE_UART_SPI_WRITE
+    #include "driver/py25q16.h"
+#endif
 
 #if defined(ENABLE_UART)
 #include "driver/uart.h"
@@ -159,6 +162,42 @@ typedef struct {
     uint32_t Timestamp;
 } CMD_052F_t;
 #endif
+
+#ifdef ENABLE_UART_SPI_WRITE
+// Maximum data bytes per CMD_0535 write packet (fits in 256-byte DMA buffer).
+#define SPI_WRITE_MAX 128u
+#define SPI_READ_MAX  128u
+
+typedef struct __attribute__((__packed__)) {
+    Header_t Header;    // ID=0x0535
+    uint32_t Addr;      // SPI Flash physical address
+    uint16_t DataLen;   // bytes in Data[], max SPI_WRITE_MAX
+    uint8_t  Padding[2];
+    uint8_t  Data[0];   // DataLen bytes (variable, up to SPI_WRITE_MAX)
+} CMD_0535_t;
+
+typedef struct {
+    Header_t Header;    // ID=0x0536
+    uint8_t  Result;    // 0=OK, 1=bad length
+    uint8_t  Padding[3];
+} REPLY_0535_t;
+
+typedef struct {
+    Header_t Header;    // ID=0x0537
+    uint32_t Addr;      // SPI Flash physical address
+    uint8_t  ReadLen;   // bytes to read, max SPI_READ_MAX
+    uint8_t  Padding[3];
+} CMD_0537_t;
+
+typedef struct {
+    Header_t Header;    // ID=0x0538
+    uint32_t Addr;      // echo of request address
+    uint8_t  ReadLen;   // echo of requested length
+    uint8_t  Result;    // 0=OK, 1=bad length
+    uint8_t  Padding[2];
+    uint8_t  Data[SPI_READ_MAX];  // ReadLen valid bytes
+} REPLY_0537_t;
+#endif // ENABLE_UART_SPI_WRITE
 
 static const uint8_t Obfuscation[16] =
 {
@@ -641,6 +680,54 @@ static void CMD_0602_WriteBK4819Reg(const uint8_t *pBuffer)
 }
 #endif
 
+#ifdef ENABLE_UART_SPI_WRITE
+// CMD_0535: Write up to SPI_WRITE_MAX bytes directly to SPI Flash.
+// Bypasses the EEPROM virtual address window, allowing writes to any
+// 24-bit physical address (e.g. 0x020000 for the full CJK font).
+static void CMD_0535_SpiWrite(uint32_t Port, const uint8_t *pBuffer)
+{
+    const CMD_0535_t *pCmd = (const CMD_0535_t *)pBuffer;
+
+    REPLY_0535_t Reply;
+    Reply.Header.ID   = 0x0536;
+    Reply.Header.Size = (uint16_t)(sizeof(Reply) - sizeof(Header_t));
+    memset(Reply.Padding, 0, sizeof(Reply.Padding));
+
+    if (pCmd->DataLen == 0u || pCmd->DataLen > SPI_WRITE_MAX) {
+        Reply.Result = 1u; // bad length
+    } else {
+        PY25Q16_WriteBuffer(pCmd->Addr, pCmd->Data, pCmd->DataLen, false);
+        Reply.Result = 0u;
+    }
+    SendReply(Port, &Reply, sizeof(Reply));
+}
+
+// CMD_0537: Read up to SPI_READ_MAX bytes directly from SPI Flash.
+static void CMD_0537_SpiRead(uint32_t Port, const uint8_t *pBuffer)
+{
+    const CMD_0537_t *pCmd = (const CMD_0537_t *)pBuffer;
+
+    REPLY_0537_t Reply;
+    Reply.Header.ID = 0x0538;
+    memset(Reply.Padding, 0, sizeof(Reply.Padding));
+    Reply.Addr    = pCmd->Addr;
+    Reply.ReadLen = pCmd->ReadLen;
+
+    if (pCmd->ReadLen == 0u || pCmd->ReadLen > SPI_READ_MAX) {
+        Reply.Result      = 1u; // bad length
+        Reply.Header.Size = (uint16_t)(sizeof(Reply) - sizeof(Header_t) - SPI_READ_MAX);
+        SendReply(Port, &Reply, (uint16_t)(sizeof(Reply) - SPI_READ_MAX));
+    } else {
+        PY25Q16_ReadBuffer(pCmd->Addr, Reply.Data, pCmd->ReadLen);
+        Reply.Result = 0u;
+        // Send only the bytes we actually filled (saves bandwidth)
+        const uint16_t reply_size = (uint16_t)(sizeof(Reply) - SPI_READ_MAX + pCmd->ReadLen);
+        Reply.Header.Size = (uint16_t)(reply_size - sizeof(Header_t));
+        SendReply(Port, &Reply, reply_size);
+    }
+}
+#endif // ENABLE_UART_SPI_WRITE
+
 bool UART_IsCommandAvailable(uint32_t Port)
 {
     uint16_t Index;
@@ -862,6 +949,16 @@ void UART_HandleCommand(uint32_t Port)
         
         case 0x0602:
             CMD_0602_WriteBK4819Reg(pUART_Command->Buffer);
+            break;
+#endif
+
+#ifdef ENABLE_UART_SPI_WRITE
+        case 0x0535:
+            CMD_0535_SpiWrite(Port, pUART_Command->Buffer);
+            break;
+
+        case 0x0537:
+            CMD_0537_SpiRead(Port, pUART_Command->Buffer);
             break;
 #endif
     } // switch

@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """flash_font.py — Write the CJK font binary to Bafang (UV-K1) SPI Flash.
 
-The font is written to EEPROM virtual address 0xD000, which the firmware maps
-to SPI Flash physical address 0x020000 via the ADDR_MAPPINGS table in
-driver/eeprom_compat.c (entry: _MK_MAPPING(0x020000, 0xD000, 0xFFFF)).
+Two write paths are supported, selected automatically based on font size:
 
-Window limitation: the EEPROM virtual address field is uint16_t, so the
-mapping window tops out at 0xFFFF → only 12 KB (0xD000..0xFFFE) is writable
-via this protocol.  The current 222-glyph font binary is 6232 bytes and fits
-comfortably.  For the full 1359-glyph font (≈38 KB) a dedicated CMD_053x
-direct-SPI write command will be needed.
+  ≤ 12 KB  (menu-only font, ≤ 222 glyphs):
+      CMD_051D  EEPROM virtual address 0xD000 → SPI Flash 0x020000
+      Readable back via CMD_051B for verification.
+
+  > 12 KB  (full IME font, up to 37.5 KB / 1372 glyphs):
+      CMD_0535  Direct SPI Flash write at physical address 0x020000
+      Readable back via CMD_0537  Direct SPI Flash read (for verification).
+      Requires firmware built with ENABLE_UART_SPI_WRITE.
 
 The radio firmware must be built with ENABLE_CHINESE defined.
 
@@ -17,9 +18,10 @@ Requirements:
     pip install pyserial
 
 Usage:
+    python tools/serialtool/flash_font.py --port /dev/cu.usbserial-130 --font tools/cjk_font_menu.bin
     python tools/serialtool/flash_font.py --port /dev/cu.usbserial-130 --font tools/cjk_font.bin
-    python tools/serialtool/flash_font.py --port /dev/cu.usbserial-130 --font tools/cjk_font.bin --no-verify
-    python tools/serialtool/flash_font.py --port COM3 --font tools/cjk_font.bin
+    python tools/serialtool/flash_font.py --port COM3 --font tools/cjk_font.bin --no-verify
+    python tools/serialtool/flash_font.py --port /dev/cu.usbserial-130 --font tools/cjk_font.bin --direct-spi
 
 UART protocol summary (UV-K5/K6/K1 proprietary):
     Frame  (host → radio):
@@ -27,16 +29,14 @@ UART protocol summary (UV-K5/K6/K1 proprietary):
         OuterSize  uint16_t LE  = InnerSize + 4
         ID         uint16_t LE  command ID
         InnerSize  uint16_t LE  payload size (bytes after the two header fields)
-        Payload    InnerSize B  (XOR-obfuscated when encrypted; unencrypted here)
+        Payload    InnerSize B  (XOR-obfuscated)
         CRC        uint16_t LE  CRC-16/CCITT over (ID + InnerSize + Payload)
         0xDC 0xBA               outer end   (2 B)
 
-    After the 0x0514 handshake the firmware disables XOR obfuscation for the
-    rest of the session, so all frames sent by this tool are plaintext.
-
 Address mapping (firmware driver/eeprom_compat.c):
     EEPROM virtual 0xD000–0xFFFE  →  SPI Flash physical 0x020000–0x022FFE
-    Current font (222 glyphs) is 6,232 bytes; 12 KB window is sufficient.
+    12 KB EEPROM window is sufficient for the menu-only font.
+    The full IME font (37.5 KB) uses CMD_0535 direct-SPI write at 0x020000.
 """
 
 import argparse
@@ -66,8 +66,8 @@ FONT_EEPROM_BASE = 0xD000
 # 0xFFFF - 0xD000 = 0x2FFF = 12,287 bytes (uint16_t address space limit).
 FONT_EEPROM_SIZE = 0x2FFF  # 12 KB − 1
 
-WRITE_CHUNK = 128  # bytes per 0x051D write (must be multiple of 8, max 128)
-READ_CHUNK  = 128  # bytes per 0x051B read  (max 128; firmware buffer limit)
+WRITE_CHUNK = 128  # bytes per 0x051D / 0x0535 write (max 128)
+READ_CHUNK  = 128  # bytes per 0x051B / 0x0537 read  (max 128)
 BAUD_RATE   = 38400
 TIMEOUT_S   = 5.0  # generous: 128-byte write may trigger sector erase (~300 ms)
 
@@ -231,6 +231,48 @@ def _read_block(
     return rep[4 : 4 + size]  # skip Offset(2)+Size(1)+Padding(1)
 
 
+def _write_block_spi(ser: "serial.Serial", spi_addr: int, chunk: bytes) -> None:
+    """Send CMD_0535 (direct SPI Flash write) and wait for CMD_0536 ACK.
+
+    Requires firmware built with ENABLE_UART_SPI_WRITE.
+
+    Inner payload layout (CMD_0535_t minus Header_t):
+        Addr uint32, DataLen uint16, Padding[2], Data[DataLen]
+
+    Reply inner data layout (REPLY_0535_t minus Header_t):
+        Result uint8, Padding[3]   (Result 0=OK, 1=bad length)
+    """
+    inner = struct.pack("<IH2x", spi_addr, len(chunk)) + chunk
+    frame = _build_frame(0x0535, inner)
+    rep   = _send_recv(ser, frame, expected_id=0x0536)
+    result = rep[0] if rep else 0xFF
+    if result != 0:
+        raise ValueError(f"CMD_0535 error result {result} at SPI addr {spi_addr:#010x}")
+
+
+def _read_block_spi(ser: "serial.Serial", spi_addr: int, size: int) -> bytes:
+    """Send CMD_0537 (direct SPI Flash read) and return the data bytes.
+
+    Requires firmware built with ENABLE_UART_SPI_WRITE.
+
+    Inner payload layout (CMD_0537_t minus Header_t):
+        Addr uint32, ReadLen uint8, Padding[3]
+
+    Reply inner data layout (REPLY_0537_t minus Header_t, variable length):
+        Addr uint32, ReadLen uint8, Result uint8, Padding[2], Data[ReadLen]
+        (Result 0=OK, 1=bad length)
+    """
+    inner = struct.pack("<IB3x", spi_addr, size)
+    frame = _build_frame(0x0537, inner)
+    rep   = _send_recv(ser, frame, expected_id=0x0538)
+    if len(rep) < 8:
+        raise ValueError(f"CMD_0537 reply too short ({len(rep)} B) at SPI addr {spi_addr:#010x}")
+    echo_addr, echo_len, result = struct.unpack_from("<IBBxx", rep, 0)
+    if result != 0:
+        raise ValueError(f"CMD_0537 error result {result} at SPI addr {spi_addr:#010x}")
+    return rep[8 : 8 + echo_len]
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -261,10 +303,19 @@ def main() -> None:
         action="store_false",
         help="Skip read-back verification after writing",
     )
-    ap.set_defaults(verify=True)
+    ap.add_argument(
+        "--direct-spi",
+        dest="direct_spi",
+        action="store_true",
+        help=(
+            "Force CMD_0535/0537 direct-SPI path even for small fonts. "
+            "Requires firmware with ENABLE_UART_SPI_WRITE."
+        ),
+    )
+    ap.set_defaults(verify=True, direct_spi=False)
     args = ap.parse_args()
 
-    # Load and pad font file to 8-byte boundary (EEPROM writes 8 B at a time)
+    # Load font file; pad to 8-byte boundary (EEPROM write granularity).
     with open(args.font, "rb") as fh:
         font_data = fh.read()
     if not font_data:
@@ -273,26 +324,26 @@ def main() -> None:
     if remainder:
         font_data += b"\xff" * (8 - remainder)
 
-    end_addr = FONT_EEPROM_BASE + len(font_data) - 1
-    if end_addr >= FONT_EEPROM_BASE + FONT_EEPROM_SIZE:
-        sys.exit(
-            f"ERROR: font too large ({len(font_data):,} bytes) for the 12 KB EEPROM "
-            f"protocol window (0x{FONT_EEPROM_BASE:04X}–0x{FONT_EEPROM_BASE + FONT_EEPROM_SIZE - 1:04X}).\n"
-            f"  The full 1372-glyph IME font (37.5 KB) requires a CMD_0535 direct-SPI\n"
-            f"  write command (not yet implemented).  For now, flash the menu-only\n"
-            f"  subset instead:\n"
-            f"    python3 tools/gen_cjk_font.py gen \\\\\n"
-            f"        --bdf tools/wenquanyi_9pt.bdf \\\\\n"
-            f"        --subset App/l10n/strings_zh.c \\\\\n"
-            f"        --subset App/ui/menu_sub_values_zh.c \\\\\n"
-            f"        --out tools/cjk_font_menu.bin\n"
-            f"  then flash tools/cjk_font_menu.bin (~6.2 KB, 222 glyphs)."
+    # Decide write path:
+    #   EEPROM path  — font ≤ 12 KB and not --direct-spi
+    #   Direct-SPI   — font > 12 KB  OR  --direct-spi flag
+    use_direct_spi = args.direct_spi or (len(font_data) > FONT_EEPROM_SIZE)
+    SPI_FONT_BASE = 0x020000  # physical address in PY25Q16 flash
+
+    if use_direct_spi:
+        write_desc = f"SPI Flash  : 0x{SPI_FONT_BASE:06X}..0x{SPI_FONT_BASE + len(font_data) - 1:06X}  (CMD_0535 direct)"
+        path_name  = "direct-SPI (CMD_0535/0537)"
+    else:
+        end_eeprom = FONT_EEPROM_BASE + len(font_data) - 1
+        write_desc = (
+            f"EEPROM virt: 0x{FONT_EEPROM_BASE:04X}..0x{end_eeprom:04X}  "
+            f"→ SPI 0x{SPI_FONT_BASE:06X}..0x{SPI_FONT_BASE + len(font_data) - 1:06X}  (CMD_051D)"
         )
+        path_name = "EEPROM-virtual (CMD_051D/051B)"
 
     print(f"Font file  : {args.font}  ({len(font_data):,} bytes)")
-    print(f"EEPROM virt: 0x{FONT_EEPROM_BASE:04X}..0x{end_addr:04X}")
-    spi_base = 0x020000 + (FONT_EEPROM_BASE - FONT_EEPROM_BASE)
-    print(f"SPI Flash  : 0x{spi_base:06X}..0x{spi_base + (end_addr - FONT_EEPROM_BASE):06X}  (physical)")
+    print(write_desc)
+    print(f"Write path : {path_name}")
     print(f"Port       : {args.port} @ {args.baud} baud")
 
     with serial.Serial(args.port, args.baud, timeout=TIMEOUT_S) as ser:
@@ -313,11 +364,14 @@ def main() -> None:
         print("Writing: ", end="", flush=True)
         for off in range(0, total, WRITE_CHUNK):
             chunk = font_data[off : off + WRITE_CHUNK]
-            addr  = FONT_EEPROM_BASE + off
             try:
-                _write_block(ser, addr, chunk, ts)
+                if use_direct_spi:
+                    _write_block_spi(ser, SPI_FONT_BASE + off, chunk)
+                else:
+                    _write_block(ser, FONT_EEPROM_BASE + off, chunk, ts)
             except Exception as exc:
-                print(f"\nERROR at EEPROM 0x{addr:04X}: {exc}", file=sys.stderr)
+                addr_str = f"SPI 0x{SPI_FONT_BASE + off:06X}" if use_direct_spi else f"EEPROM 0x{FONT_EEPROM_BASE + off:04X}"
+                print(f"\nERROR at {addr_str}: {exc}", file=sys.stderr)
                 sys.exit(1)
             written += len(chunk)
             print(
@@ -336,15 +390,19 @@ def main() -> None:
         verified = 0
         ok = True
         for off in range(0, total, READ_CHUNK):
-            size  = min(READ_CHUNK, total - off)
-            addr  = FONT_EEPROM_BASE + off
+            size = min(READ_CHUNK, total - off)
             try:
-                rb = _read_block(ser, addr, size, ts)
+                if use_direct_spi:
+                    rb = _read_block_spi(ser, SPI_FONT_BASE + off, size)
+                else:
+                    rb = _read_block(ser, FONT_EEPROM_BASE + off, size, ts)
             except Exception as exc:
-                print(f"\nERROR reading back EEPROM 0x{addr:04X}: {exc}", file=sys.stderr)
+                addr_str = f"SPI 0x{SPI_FONT_BASE + off:06X}" if use_direct_spi else f"EEPROM 0x{FONT_EEPROM_BASE + off:04X}"
+                print(f"\nERROR reading back {addr_str}: {exc}", file=sys.stderr)
                 sys.exit(1)
             if rb != font_data[off : off + size]:
-                print(f"\nMISMATCH at EEPROM 0x{addr:04X}", file=sys.stderr)
+                addr_str = f"SPI 0x{SPI_FONT_BASE + off:06X}" if use_direct_spi else f"EEPROM 0x{FONT_EEPROM_BASE + off:04X}"
+                print(f"\nMISMATCH at {addr_str}", file=sys.stderr)
                 ok = False
                 break
             verified += size
