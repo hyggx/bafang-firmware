@@ -4,7 +4,33 @@
 Reads a WenQuanYi 9pt BDF bitmap font, extracts the requested Unicode
 codepoints (default: CJK Unified Ideographs U+4E00–U+9FFF plus common
 punctuation), and writes a binary image suitable for flashing to SPI Flash at
-offset 0x010000 (CJK_FONT_BASE).
+offset 0x020000 (CJK_FONT_BASE).
+
+Flash write size limit
+----------------------
+The EEPROM-protocol write path (flash_font.py, CMD_051D) is limited to the
+12 KB EEPROM virtual window 0xD000–0xFFFF → SPI 0x020000–0x022FFE.
+
+  • Menu-only subset (≤ 222 glyphs, ~6.2 KB):  fits → flash_font.py works today
+  • Full IME subset  (1372 glyphs, 37.5 KB):   does NOT fit → needs CMD_0535
+    direct-SPI write command (future work)
+
+Regenerate the menu-only subset (for flash_font.py):
+    python3 tools/gen_cjk_font.py gen \\
+        --bdf tools/wenquanyi_9pt.bdf \\
+        --subset App/l10n/strings_zh.c \\
+        --subset App/ui/menu_sub_values_zh.c \\
+        --out tools/cjk_font_menu.bin
+
+Regenerate the full IME subset (requires CMD_0535):
+    python3 tools/gen_cjk_font.py gen \\
+        --bdf tools/wenquanyi_9pt.bdf \\
+        --subset App/l10n/strings_zh.c \\
+        --subset App/ui/menu_sub_values_zh.c \\
+        --subset /tmp/ime_candidates.txt \\
+        --out tools/cjk_font.bin
+  (generate /tmp/ime_candidates.txt first via tools/extract_pinyin.py or the
+   one-liner in the commit message)
 
 Output binary layout (see App/l10n/cjk_font.h for the canonical spec):
 

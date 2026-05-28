@@ -276,8 +276,17 @@ def main() -> None:
     end_addr = FONT_EEPROM_BASE + len(font_data) - 1
     if end_addr >= FONT_EEPROM_BASE + FONT_EEPROM_SIZE:
         sys.exit(
-            f"ERROR: font too large — would end at EEPROM 0x{end_addr:04X} "
-            f"(window limit 0x{FONT_EEPROM_BASE + FONT_EEPROM_SIZE - 1:04X})"
+            f"ERROR: font too large ({len(font_data):,} bytes) for the 12 KB EEPROM "
+            f"protocol window (0x{FONT_EEPROM_BASE:04X}–0x{FONT_EEPROM_BASE + FONT_EEPROM_SIZE - 1:04X}).\n"
+            f"  The full 1372-glyph IME font (37.5 KB) requires a CMD_0535 direct-SPI\n"
+            f"  write command (not yet implemented).  For now, flash the menu-only\n"
+            f"  subset instead:\n"
+            f"    python3 tools/gen_cjk_font.py gen \\\\\n"
+            f"        --bdf tools/wenquanyi_9pt.bdf \\\\\n"
+            f"        --subset App/l10n/strings_zh.c \\\\\n"
+            f"        --subset App/ui/menu_sub_values_zh.c \\\\\n"
+            f"        --out tools/cjk_font_menu.bin\n"
+            f"  then flash tools/cjk_font_menu.bin (~6.2 KB, 222 glyphs)."
         )
 
     print(f"Font file  : {args.font}  ({len(font_data):,} bytes)")
