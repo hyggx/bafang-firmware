@@ -11,14 +11,24 @@ Flash write size limit
 The EEPROM-protocol write path (flash_font.py, CMD_051D) is limited to the
 12 KB EEPROM virtual window 0xD000–0xFFFF → SPI 0x020000–0x022FFE.
 
-  • Menu-only subset (≤ 222 glyphs, ~6.2 KB):  fits → flash_font.py works today
-  • Full IME subset  (1372 glyphs, 37.5 KB):   does NOT fit → needs CMD_0535
-    direct-SPI write command (future work)
+  • Menu-only subset (≤ 232 glyphs, ~6.4 KB):  fits → flash_font.py works today
+  • Full IME subset  (1149 glyphs, 31.4 KB):   needs CMD_0535 direct-SPI write
+
+All Chinese source files that contribute string literals must be listed as
+--subset arguments.  Missing a file causes missing glyphs at runtime.
+Current complete subset files:
+    App/l10n/strings_zh.c          -- translated UI strings
+    App/l10n/strings.h             -- string key enum (some inline ZH)
+    App/ui/menu.c                  -- kCatNameZh hardcoded strings
+    App/ui/menu_sub_values_zh.c    -- sub-menu value strings
+    App/ime/pinyin_table.c         -- pinyin candidate codepoints (IME only)
 
 Regenerate the menu-only subset (for flash_font.py):
     python3 tools/gen_cjk_font.py gen \\
         --bdf tools/wenquanyi_9pt.bdf \\
         --subset App/l10n/strings_zh.c \\
+        --subset App/l10n/strings.h \\
+        --subset App/ui/menu.c \\
         --subset App/ui/menu_sub_values_zh.c \\
         --out tools/cjk_font_menu.bin
 
@@ -26,11 +36,11 @@ Regenerate the full IME subset (requires CMD_0535):
     python3 tools/gen_cjk_font.py gen \\
         --bdf tools/wenquanyi_9pt.bdf \\
         --subset App/l10n/strings_zh.c \\
+        --subset App/l10n/strings.h \\
+        --subset App/ui/menu.c \\
         --subset App/ui/menu_sub_values_zh.c \\
-        --subset /tmp/ime_candidates.txt \\
+        --subset App/ime/pinyin_table.c \\
         --out tools/cjk_font.bin
-  (generate /tmp/ime_candidates.txt first via tools/extract_pinyin.py or the
-   one-liner in the commit message)
 
 Output binary layout (see App/l10n/cjk_font.h for the canonical spec):
 
@@ -47,7 +57,10 @@ Usage:
     python3 tools/gen_cjk_font.py gen \\
         --bdf /path/to/wenquanyi_9pt.bdf \\
         --subset App/l10n/strings_zh.c \\
-        --out tools/cjk_font.bin
+        --subset App/l10n/strings.h \\
+        --subset App/ui/menu.c \\
+        --subset App/ui/menu_sub_values_zh.c \\
+        --out tools/cjk_font_menu.bin
 
     # Verify the output:
     python3 tools/gen_cjk_font.py verify tools/cjk_font.bin
