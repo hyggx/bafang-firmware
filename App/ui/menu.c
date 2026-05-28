@@ -205,74 +205,90 @@ static inline const char *MENU_ItemName(const t_menu_item *item)
 const t_menu_item MenuList[] =
 {
 //   text,          menu ID               category
-// ── SIGNAL ──────────────────────────────────────
-    {"Sql",         MENU_SQL,           MENU_CAT_SIGNAL},
-    {"Step",        MENU_STEP,          MENU_CAT_SIGNAL},
-    {"Power",       MENU_TXP,           MENU_CAT_SIGNAL}, // was "TXP"
-    {"W/N",         MENU_W_N,           MENU_CAT_SIGNAL},
-    {"Mode",        MENU_AM,            MENU_CAT_SIGNAL}, // was "AM"
-    {"RxMode",      MENU_TDR,           MENU_CAT_SIGNAL},
-#ifdef ENABLE_VOX
-    {"VOX",         MENU_VOX,           MENU_CAT_SIGNAL},
-#endif
-    {"BusyCL",      MENU_BCL,           MENU_CAT_SIGNAL}, // was "BCL"
-    {"Compnd",      MENU_COMPAND,       MENU_CAT_SIGNAL},
-#ifdef ENABLE_FEAT_F4HWN
-    {"TXLock",      MENU_TX_LOCK,       MENU_CAT_SIGNAL},
-#endif
-    {"RxDCS",       MENU_R_DCS,         MENU_CAT_SIGNAL}, // was "R_DCS"
-    {"RxCTCS",      MENU_R_CTCS,        MENU_CAT_SIGNAL}, // was "R_CTCS"
-    {"TxDCS",       MENU_T_DCS,         MENU_CAT_SIGNAL}, // was "T_DCS"
-    {"TxCTCS",      MENU_T_CTCS,        MENU_CAT_SIGNAL}, // was "T_CTCS"
-    {"TxODir",      MENU_SFT_D,         MENU_CAT_SIGNAL}, // was "SFT_D"
-    {"TxOffs",      MENU_OFFSET,        MENU_CAT_SIGNAL}, // was "OFFSET"
+// ── 当前信道 (VFO) ─ per-channel saveable params ──────────────────────────
+    {"Step",        MENU_STEP,          MENU_CAT_VFO},
+    {"Power",       MENU_TXP,           MENU_CAT_VFO},    // was "TXP"
+    {"W/N",         MENU_W_N,           MENU_CAT_VFO},
+    {"Mode",        MENU_AM,            MENU_CAT_VFO},    // was "AM"
+    {"RxDCS",       MENU_R_DCS,         MENU_CAT_VFO},    // was "R_DCS"
+    {"RxCTCS",      MENU_R_CTCS,        MENU_CAT_VFO},    // was "R_CTCS"
+    {"TxDCS",       MENU_T_DCS,         MENU_CAT_VFO},    // was "T_DCS"
+    {"TxCTCS",      MENU_T_CTCS,        MENU_CAT_VFO},    // was "T_CTCS"
+    {"TxODir",      MENU_SFT_D,         MENU_CAT_VFO},    // was "SFT_D"
+    {"TxOffs",      MENU_OFFSET,        MENU_CAT_VFO},    // was "OFFSET"
+    {"BusyCL",      MENU_BCL,           MENU_CAT_VFO},    // was "BCL"
+    {"Compnd",      MENU_COMPAND,       MENU_CAT_VFO},
 #ifndef ENABLE_FEAT_F4HWN
-    {"Scramb",      MENU_SCR,           MENU_CAT_SIGNAL}, // was "SCR"
-    #ifdef ENABLE_AM_FIX
-    {"AM Fix",      MENU_AM_FIX,        MENU_CAT_SIGNAL},
-    #endif
+    {"Scramb",      MENU_SCR,           MENU_CAT_VFO},    // was "SCR"
+#endif
+#ifdef ENABLE_FEAT_F4HWN
+    {"TXLock",      MENU_TX_LOCK,       MENU_CAT_VFO},
 #endif
 #ifdef ENABLE_FEAT_F4HWN_NARROWER
-    {"SetNFM",      MENU_SET_NFM,       MENU_CAT_SIGNAL},
+    {"SetNFM",      MENU_SET_NFM,       MENU_CAT_VFO},
 #endif
 #ifdef ENABLE_FEAT_F4HWN_AUDIO
-    {"SetRxA",      MENU_SET_AUD,       MENU_CAT_SIGNAL},
+    {"SetRxA",      MENU_SET_AUD,       MENU_CAT_VFO},
 #endif
 #ifdef ENABLE_FEAT_F4HWN_VOL
-    {"SetRxGn",     MENU_SET_VOL,       MENU_CAT_SIGNAL},
+    {"SetRxGn",     MENU_SET_VOL,       MENU_CAT_VFO},
 #endif
 
-// ── CHANNEL ──────────────────────────────────────
-    {"ChList",      MENU_LIST_CH,       MENU_CAT_CHANNEL},
-    {"ChSave",      MENU_MEM_CH,        MENU_CAT_CHANNEL}, // was "MEM-CH"
-    {"ChName",      MENU_MEM_NAME,      MENU_CAT_CHANNEL},
-    {"ChDele",      MENU_DEL_CH,        MENU_CAT_CHANNEL}, // was "DEL-CH"
-    {"1 Call",      MENU_1_CALL,        MENU_CAT_CHANNEL},
-    {"ScList",      MENU_S_LIST,        MENU_CAT_CHANNEL},
-    {"ScPri",       MENU_S_PRI,         MENU_CAT_CHANNEL},
-    {"PriCh1",      MENU_S_PRI_CH_1,    MENU_CAT_CHANNEL},
-    {"PriCh2",      MENU_S_PRI_CH_2,    MENU_CAT_CHANNEL},
-    {"ScnRev",      MENU_SC_REV,        MENU_CAT_CHANNEL},
+// ── 信道管理 (CHANMGR) ─ channel CRUD + scan lists ─────────────────────────
+    {"ChList",      MENU_LIST_CH,       MENU_CAT_CHANMGR},
+    {"ChSave",      MENU_MEM_CH,        MENU_CAT_CHANMGR}, // was "MEM-CH"
+    {"ChName",      MENU_MEM_NAME,      MENU_CAT_CHANMGR},
+    {"ChDele",      MENU_DEL_CH,        MENU_CAT_CHANMGR}, // was "DEL-CH"
+    {"1 Call",      MENU_1_CALL,        MENU_CAT_CHANMGR},
+    {"ScList",      MENU_S_LIST,        MENU_CAT_CHANMGR},
+    {"ScPri",       MENU_S_PRI,         MENU_CAT_CHANMGR},
+    {"PriCh1",      MENU_S_PRI_CH_1,    MENU_CAT_CHANMGR},
+    {"PriCh2",      MENU_S_PRI_CH_2,    MENU_CAT_CHANMGR},
+    {"ScnRev",      MENU_SC_REV,        MENU_CAT_CHANMGR},
 #ifdef ENABLE_FEAT_F4HWN
     #ifdef ENABLE_FEAT_F4HWN_SCAN_FASTER
-    {"SetScn",      MENU_SET_SCN,       MENU_CAT_CHANNEL},
+    {"SetScn",      MENU_SET_SCN,       MENU_CAT_CHANMGR},
     #endif
     #ifdef ENABLE_NOAA
-    {"SetNWR",      MENU_NOAA_S,        MENU_CAT_CHANNEL},
+    {"SetNWR",      MENU_NOAA_S,        MENU_CAT_CHANMGR},
     #endif
 #else
     #ifdef ENABLE_NOAA
-    {"NOAA-S",      MENU_NOAA_S,        MENU_CAT_CHANNEL},
+    {"NOAA-S",      MENU_NOAA_S,        MENU_CAT_CHANMGR},
     #endif
 #endif
 
-// ── DTMF ─────────────────────────────────────────
+// ── 收发设置 (RADIO) ─ global TX/RX behaviour ────────────────────────────
+    {"Sql",         MENU_SQL,           MENU_CAT_RADIO},
+    {"RxMode",      MENU_TDR,           MENU_CAT_RADIO},
+#ifdef ENABLE_VOX
+    {"VOX",         MENU_VOX,           MENU_CAT_RADIO},
+#endif
+    {"TxTOut",      MENU_TOT,           MENU_CAT_RADIO},   // was "TOT"
+    {"Mic",         MENU_MIC,           MENU_CAT_RADIO},
+    {"Roger",       MENU_ROGER,         MENU_CAT_RADIO},
+    {"STE",         MENU_STE,           MENU_CAT_RADIO},
+    {"RP STE",      MENU_RP_STE,        MENU_CAT_RADIO},
+#ifdef ENABLE_ALARM
+    {"AlarmT",      MENU_AL_MOD,        MENU_CAT_RADIO},
+#endif
+#ifndef ENABLE_FEAT_F4HWN
+    #ifdef ENABLE_AM_FIX
+    {"AM Fix",      MENU_AM_FIX,        MENU_CAT_RADIO},
+    #endif
+#endif
+#ifdef ENABLE_FEAT_F4HWN
+    {"SetTOT",      MENU_SET_TOT,       MENU_CAT_RADIO},
+    {"SetEOT",      MENU_SET_EOT,       MENU_CAT_RADIO},
+#endif
+
+// ── DTMF ─────────────────────────────────────────────────────────────────
     {"UPCode",      MENU_UPCODE,        MENU_CAT_DTMF},
     {"DWCode",      MENU_DWCODE,        MENU_CAT_DTMF},
     {"PTT ID",      MENU_PTT_ID,        MENU_CAT_DTMF},
     {"D ST",        MENU_D_ST,          MENU_CAT_DTMF},
     {"D Prel",      MENU_D_PRE,         MENU_CAT_DTMF},
-    {"D Live",      MENU_D_LIVE_DEC,    MENU_CAT_DTMF}, // live DTMF decoder
+    {"D Live",      MENU_D_LIVE_DEC,    MENU_CAT_DTMF},   // live DTMF decoder
 #ifdef ENABLE_DTMF_CALLING
     {"ANI ID",      MENU_ANI_ID,        MENU_CAT_DTMF},
     {"D Resp",      MENU_D_RSP,         MENU_CAT_DTMF},
@@ -280,51 +296,43 @@ const t_menu_item MenuList[] =
     {"D Decd",      MENU_D_DCD,         MENU_CAT_DTMF},
     {"D List",      MENU_D_LIST,        MENU_CAT_DTMF},
 #endif
-#ifdef ENABLE_ALARM
-    {"AlarmT",      MENU_AL_MOD,        MENU_CAT_DTMF},
-#endif
-    {"STE",         MENU_STE,           MENU_CAT_DTMF},
-    {"RP STE",      MENU_RP_STE,        MENU_CAT_DTMF},
 
-// ── DISPLAY / KEYS ───────────────────────────────
-    {"ChDisp",      MENU_MDF,           MENU_CAT_DISPLAY}, // was "MDF"
-    {"POnMsg",      MENU_PONMSG,        MENU_CAT_DISPLAY},
-    {"BatTxt",      MENU_BAT_TXT,       MENU_CAT_DISPLAY},
-    {"BLTime",      MENU_ABR,           MENU_CAT_DISPLAY}, // was "ABR"
-    {"BLMin",       MENU_ABR_MIN,       MENU_CAT_DISPLAY},
-    {"BLMax",       MENU_ABR_MAX,       MENU_CAT_DISPLAY},
-    {"BLTxRx",      MENU_ABR_ON_TX_RX,  MENU_CAT_DISPLAY},
+// ── 界面按键 (UI) ─ display, backlight, keys, audio feedback ─────────────
+    {"ChDisp",      MENU_MDF,           MENU_CAT_UI},     // was "MDF"
+    {"POnMsg",      MENU_PONMSG,        MENU_CAT_UI},
+    {"BatTxt",      MENU_BAT_TXT,       MENU_CAT_UI},
+    {"BLTime",      MENU_ABR,           MENU_CAT_UI},     // was "ABR"
+    {"BLMin",       MENU_ABR_MIN,       MENU_CAT_UI},
+    {"BLMax",       MENU_ABR_MAX,       MENU_CAT_UI},
+    {"BLTxRx",      MENU_ABR_ON_TX_RX,  MENU_CAT_UI},
 #ifdef ENABLE_FEAT_F4HWN
-    {"SetCtr",      MENU_SET_CTR,       MENU_CAT_DISPLAY},
-    {"SetGUI",      MENU_SET_GUI,       MENU_CAT_DISPLAY},
-    {"SetMet",      MENU_SET_MET,       MENU_CAT_DISPLAY},
+    {"SetCtr",      MENU_SET_CTR,       MENU_CAT_UI},
+    {"SetGUI",      MENU_SET_GUI,       MENU_CAT_UI},
+    {"SetMet",      MENU_SET_MET,       MENU_CAT_UI},
 #endif
-    {"F1Shrt",      MENU_F1SHRT,        MENU_CAT_DISPLAY},
-    {"F1Long",      MENU_F1LONG,        MENU_CAT_DISPLAY},
-    {"F2Shrt",      MENU_F2SHRT,        MENU_CAT_DISPLAY},
-    {"F2Long",      MENU_F2LONG,        MENU_CAT_DISPLAY},
-    {"M Long",      MENU_MLONG,         MENU_CAT_DISPLAY},
-    {"KeyLck",      MENU_AUTOLK,        MENU_CAT_DISPLAY}, // was "AUTOLk"
+    {"F1Shrt",      MENU_F1SHRT,        MENU_CAT_UI},
+    {"F1Long",      MENU_F1LONG,        MENU_CAT_UI},
+    {"F2Shrt",      MENU_F2SHRT,        MENU_CAT_UI},
+    {"F2Long",      MENU_F2LONG,        MENU_CAT_UI},
+    {"M Long",      MENU_MLONG,         MENU_CAT_UI},
+    {"KeyLck",      MENU_AUTOLK,        MENU_CAT_UI},     // was "AUTOLk"
 #ifdef ENABLE_FEAT_F4HWN
-    {"SetPTT",      MENU_SET_PTT,       MENU_CAT_DISPLAY},
+    {"SetPTT",      MENU_SET_PTT,       MENU_CAT_UI},
 #endif
-    {"Beep",        MENU_BEEP,          MENU_CAT_DISPLAY},
+    {"Beep",        MENU_BEEP,          MENU_CAT_UI},
 #ifdef ENABLE_VOICE
-    {"Voice",       MENU_VOICE,         MENU_CAT_DISPLAY},
+    {"Voice",       MENU_VOICE,         MENU_CAT_UI},
 #endif
-    {"Roger",       MENU_ROGER,         MENU_CAT_DISPLAY},
+#ifdef ENABLE_AUDIO_BAR
+    {"MicBar",      MENU_MIC_BAR,       MENU_CAT_UI},
+#endif
 #ifndef ENABLE_FEAT_F4HWN
-    {"BatVol",      MENU_VOL,           MENU_CAT_DISPLAY}, // was "VOL"
+    {"BatVol",      MENU_VOL,           MENU_CAT_UI},     // was "VOL"
 #endif
 
-// ── SYSTEM ───────────────────────────────────────
-    {"TxTOut",      MENU_TOT,           MENU_CAT_SYSTEM}, // was "TOT"
+// ── 系统设置 (SYSTEM) ────────────────────────────────────────────────────
     {"BatSav",      MENU_SAVE,          MENU_CAT_SYSTEM}, // was "SAVE"
-    {"Mic",         MENU_MIC,           MENU_CAT_SYSTEM},
-    {"MicBar",      MENU_MIC_BAR,       MENU_CAT_SYSTEM},
 #ifdef ENABLE_FEAT_F4HWN
-    {"SetTOT",      MENU_SET_TOT,       MENU_CAT_SYSTEM},
-    {"SetEOT",      MENU_SET_EOT,       MENU_CAT_SYSTEM},
     {"SetTmr",      MENU_SET_TMR,       MENU_CAT_SYSTEM},
     #ifdef ENABLE_FEAT_F4HWN_SLEEP
     {"SetOff",      MENU_SET_OFF,       MENU_CAT_SYSTEM},
@@ -832,27 +840,30 @@ static void s_draw_icon_16px(const uint8_t *icon, uint8_t x, uint8_t page)
 static void UI_DisplayMenuCat(void)
 {
     static const char * const kCatNameEn[MENU_CAT_COUNT] = {
-        "Signal", "Channel", "DTMF", "Display", "System"
+        "Channel", "Ch Mgmt", "Radio", "DTMF", "UI/Keys", "System"
     };
     static const char * const kCatNameZh[MENU_CAT_COUNT] = {
-        "信号设置", "频道设置", "双音多频", "显示设置", "系统设置"
+        "当前信道", "信道管理", "收发设置", "DTMF", "界面按键", "系统设置"
     };
 
     // 8×8 category icons, column-major (bit 0 = top, bit 7 = bottom).
-    // Indexed by MENU_CAT_* (0 = Signal … 4 = System).
+    // Indexed by MENU_CAT_* (0 = VFO … 5 = System).
     //
-    // Signal  : vertical antenna pole (rows 0,3-7) + two symmetric arcs (rows 1-2)
-    //           + horizontal base (row 7, cols 2-4)
-    // Channel : three evenly-spaced horizontal bars (rows 1, 3, 5)
-    // DTMF    : 3×3 keypad dot grid (2×2 pixel dots at rows 1-2, 4-5; hash at row 7)
-    // Display : monitor outline (rows 1-5) + stand legs (row 6) + base (row 7)
-    // System  : simplified 6-tooth gear outline (centre hole implied by gap at row 3)
+    // VFO      : radio wave / frequency symbol — vertical bar (col 3) with
+    //            two symmetric arcs on each side (cols 1,5 and 0,6)
+    // ChanMgr  : stack of four horizontal bars (rows 1,3,5,7) — "list" icon
+    // Radio    : classic walkie-talkie outline (antenna top, body rectangle,
+    //            PTT side button)
+    // DTMF     : 3×3 keypad dot grid (2×2 pixel dots at rows 1-2, 4-5, 7)
+    // UI/Keys  : monitor outline (rows 1-5) + stand legs + base (rows 6-7)
+    // System   : simplified 6-tooth gear outline
     static const uint8_t kCatIcons[MENU_CAT_COUNT][8] = {
-        {0x00, 0x04, 0x82, 0xF9, 0x82, 0x04, 0x00, 0x00}, // Signal
-        {0x00, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x00}, // Channel
-        {0x00, 0x36, 0x00, 0xB6, 0x00, 0x36, 0x00, 0x00}, // DTMF
-        {0x00, 0x3E, 0xA2, 0xE2, 0xE2, 0xA2, 0x3E, 0x00}, // Display
-        {0x1C, 0x3E, 0x22, 0x77, 0x22, 0x3E, 0x1C, 0x00}, // System
+        {0x08, 0x1C, 0x36, 0x63, 0x36, 0x1C, 0x08, 0x00}, // VFO      (radio waves)
+        {0x00, 0x7E, 0x00, 0x7E, 0x00, 0x7E, 0x00, 0x7E}, // ChanMgr  (list bars)
+        {0x10, 0x10, 0x7C, 0x44, 0x7C, 0x44, 0x7C, 0x00}, // Radio    (walkie-talkie)
+        {0x00, 0x36, 0x00, 0xB6, 0x00, 0x36, 0x00, 0x00}, // DTMF     (keypad dots)
+        {0x00, 0x3E, 0xA2, 0xE2, 0xE2, 0xA2, 0x3E, 0x00}, // UI/Keys  (monitor)
+        {0x1C, 0x3E, 0x22, 0x77, 0x22, 0x3E, 0x1C, 0x00}, // System   (gear)
     };
 
     // 3 big-font items (16 px each = 2 pages) on pages 0–5; pages 6–7 empty.

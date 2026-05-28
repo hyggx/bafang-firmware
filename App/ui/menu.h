@@ -31,13 +31,20 @@ typedef struct {
 } t_menu_item;
 
 // ---------- Two-level categorised menu ----------------------------------
-#define MENU_CAT_SIGNAL   0u   // RF / signal parameters
-#define MENU_CAT_CHANNEL  1u   // channel & scan
-#define MENU_CAT_DTMF     2u   // DTMF / signalling
-#define MENU_CAT_DISPLAY  3u   // display, keys, audio feedback
-#define MENU_CAT_SYSTEM   4u   // system / battery / misc
-#define MENU_CAT_COUNT    5u
+#define MENU_CAT_VFO      0u   // per-channel saveable parameters
+#define MENU_CAT_CHANMGR  1u   // channel management & scan lists
+#define MENU_CAT_RADIO    2u   // global TX/RX behaviour
+#define MENU_CAT_DTMF     3u   // DTMF / signalling
+#define MENU_CAT_UI       4u   // display, backlight, keys, feedback
+#define MENU_CAT_SYSTEM   5u   // system / battery / power / misc
+#define MENU_CAT_COUNT    6u
 #define MENU_CAT_NONE     0xFFu // hidden items (no category)
+
+// Legacy aliases so old references to MENU_CAT_SIGNAL / MENU_CAT_CHANNEL /
+// MENU_CAT_DISPLAY still compile during the transition.
+#define MENU_CAT_SIGNAL   MENU_CAT_VFO
+#define MENU_CAT_CHANNEL  MENU_CAT_CHANMGR
+#define MENU_CAT_DISPLAY  MENU_CAT_UI
 
 // Enable category navigation when not in hidden-menu mode (gF_LOCK == false).
 // Requires ENABLE_FEAT_F4HWN for localisation support; disabled on plain builds.
