@@ -855,13 +855,6 @@ static void UI_DisplayMenuCat(void)
         {0x1C, 0x3E, 0x22, 0x77, 0x22, 0x3E, 0x1C, 0x00}, // System
     };
 
-    // Left-pointing selection triangle (◄): tip at col 0 (row 3 only),
-    // base at col 3 (rows 0–6).  Placed at x = LCD_WIDTH-5 so the base
-    // lands at column 126 and the single-pixel tip at column 123.
-    static const uint8_t kCatArrow[8] = {
-        0x08, 0x1C, 0x3E, 0x7F, 0x00, 0x00, 0x00, 0x00,
-    };
-
     // 3 big-font items (16 px each = 2 pages) on pages 0–5; pages 6–7 empty.
     const uint8_t visible = 3u;
     uint8_t scroll = 0u;
@@ -885,9 +878,14 @@ static void UI_DisplayMenuCat(void)
         else
             UI_PrintString(name, 11, 0, page, 8);
 
-        // Selection arrow: ◄ at right edge, same vertical centre as the text.
-        if (c == gMenuCatCursor)
-            s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 5u), page);
+        // Invert the selected row: XOR both pages so icon + text appear
+        // white on black, matching the style of the regular menu list cursor.
+        if (c == gMenuCatCursor) {
+            for (uint8_t x = 0u; x < LCD_WIDTH; x++) {
+                gFrameBuffer[page    ][x] ^= 0xFFu;
+                gFrameBuffer[page + 1u][x] ^= 0xFFu;
+            }
+        }
     }
 }
 
