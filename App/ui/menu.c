@@ -908,24 +908,19 @@ static void UI_DisplayMenuCat(void)
             s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 8u), page);
     }
 
-    // Page indicator dots in the bottom row (gFrameBuffer[6], 8 px tall).
-    // Each dot is 5 columns wide; dots are separated by 8 columns so they
-    // are clearly distinct.  Vertically the bits are centred in the 8-px row:
-    //   Active dot:   5 solid px  (bits 1-5 = 0x3E) — filled rectangle
-    //   Inactive dot: outline only (bits 1,5 = 0x22) — hollow rectangle
+    // Page indicator: "1/2" / "2/2" centred in the bottom row (page 6).
+    // Small font char width = 6 px + 1 px spacing = 7 px; "1/2" = 3 chars = 21 px.
     {
         const uint8_t page_count = (MENU_CAT_COUNT + visible - 1u) / visible; // 2
-        const uint8_t dot_w   = 5u;   // columns per dot
-        const uint8_t dot_gap = 8u;   // columns between dots
-        const uint8_t stride  = (uint8_t)(dot_w + dot_gap);
-        const uint8_t total_w = (uint8_t)(page_count * dot_w + (page_count - 1u) * dot_gap);
-        const uint8_t dot_x   = (uint8_t)((LCD_WIDTH - total_w) / 2u);
-        for (uint8_t pi = 0u; pi < page_count; pi++) {
-            const uint8_t val = (pi == cur_page) ? 0x3Eu : 0x22u;
-            const uint8_t x   = (uint8_t)(dot_x + pi * stride);
-            for (uint8_t col = 0u; col < dot_w; col++)
-                gFrameBuffer[6][x + col] = val;
-        }
+        char page_str[8];
+        // snprintf not available on bare-metal; build the string manually.
+        page_str[0] = (char)('1' + cur_page);
+        page_str[1] = '/';
+        page_str[2] = (char)('0' + page_count);
+        page_str[3] = '\0';
+        // Centre the 3-char string (3 × 7 px = 21 px) on a 128 px screen.
+        const uint8_t px = (uint8_t)((LCD_WIDTH - 21u) / 2u);
+        UI_PrintStringSmallNormal(page_str, px, 0, 6);
     }
 }
 
