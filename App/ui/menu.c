@@ -866,11 +866,16 @@ static void UI_DisplayMenuCat(void)
         {0x1C, 0x3E, 0x22, 0x77, 0x22, 0x3E, 0x1C, 0x00}, // System   (gear)
     };
 
-    // 3 big-font items (16 px each = 2 pages) on pages 0–5; pages 6–7 empty.
+    // 3 big-font items (16 px each = 2 pages) on pages 0–5; page 6 = indicator.
     const uint8_t visible = 3u;
-    uint8_t scroll = 0u;
-    if (gMenuCatCursor >= visible)
-        scroll = (uint8_t)(gMenuCatCursor - visible + 1u);
+
+    // Page-snap scrolling: always show a full page of 'visible' items.
+    // With MENU_CAT_COUNT=6 and visible=3 there are exactly 2 pages:
+    //   Page 0 (scroll=0): categories 0, 1, 2
+    //   Page 1 (scroll=3): categories 3, 4, 5
+    // Cursor moving from item 2 to item 3 flips the whole page at once.
+    const uint8_t cur_page = (uint8_t)(gMenuCatCursor / visible);
+    const uint8_t scroll   = (uint8_t)(cur_page * visible);
 
     // Selection indicator: left-pointing chevron (<) as 8×8 bitmap so that
     // s_draw_icon_16px() centres it vertically (2 px top pad, same as the
@@ -901,6 +906,24 @@ static void UI_DisplayMenuCat(void)
         // Selection indicator: < chevron at right edge, vertically centred.
         if (c == gMenuCatCursor)
             s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 8u), page);
+    }
+
+    // Page indicator dots in the bottom row (gFrameBuffer[6], 8 px tall).
+    // Two dots of 3 columns each, separated by 2 columns, centred on screen.
+    // Active dot:   3 solid rows (bits 2-4 = 0x1C)
+    // Inactive dot: top + bottom rows only (bits 2, 4 = 0x14) → open circle
+    {
+        const uint8_t page_count = (MENU_CAT_COUNT + visible - 1u) / visible; // 2
+        // total width = page_count * 3 + (page_count-1) * 2
+        const uint8_t total_w = (uint8_t)(page_count * 3u + (page_count - 1u) * 2u);
+        const uint8_t dot_x   = (uint8_t)((LCD_WIDTH - total_w) / 2u);
+        for (uint8_t pi = 0u; pi < page_count; pi++) {
+            const uint8_t val = (pi == cur_page) ? 0x1Cu : 0x14u;
+            const uint8_t x   = (uint8_t)(dot_x + pi * 5u);
+            gFrameBuffer[6][x]      = val;
+            gFrameBuffer[6][x + 1u] = val;
+            gFrameBuffer[6][x + 2u] = val;
+        }
     }
 }
 
