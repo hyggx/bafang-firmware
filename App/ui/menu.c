@@ -861,6 +861,15 @@ static void UI_DisplayMenuCat(void)
     if (gMenuCatCursor >= visible)
         scroll = (uint8_t)(gMenuCatCursor - visible + 1u);
 
+    // Selection indicator: left-pointing chevron (<) as 8×8 bitmap so that
+    // s_draw_icon_16px() centres it vertically (2 px top pad, same as the
+    // category icons).  Column-major, bit 0 = top pixel.
+    //   col 0 (0x08): only row 3  → pointy tip
+    //   col 3 (0x7F): rows 0–6   → flat back
+    static const uint8_t kCatArrow[8] = {
+        0x08, 0x1C, 0x3E, 0x7F, 0x00, 0x00, 0x00, 0x00,
+    };
+
     UI_DisplayClear();
 
     for (uint8_t vi = 0u; vi < visible; vi++) {
@@ -871,21 +880,16 @@ static void UI_DisplayMenuCat(void)
         // Icon: 8×8, vertically centred in the 16 px slot (2 px top / 6 px bottom).
         s_draw_icon_16px(kCatIcons[c], 1u, page);
 
-        // Name: x = 11  (1 px left margin + 8 px icon + 2 px gap).
+        // Name: x = 13  (1 px left margin + 8 px icon + 4 px gap).
         const char *name = (g_lang == LANG_ZH) ? kCatNameZh[c] : kCatNameEn[c];
         if (g_lang == LANG_ZH)
-            UI_PrintStringUTF8(name, 11, page);
+            UI_PrintStringUTF8(name, 13, page);
         else
-            UI_PrintString(name, 11, 0, page, 8);
+            UI_PrintString(name, 13, 0, page, 8);
 
-        // Invert the selected row: XOR both pages so icon + text appear
-        // white on black, matching the style of the regular menu list cursor.
-        if (c == gMenuCatCursor) {
-            for (uint8_t x = 0u; x < LCD_WIDTH; x++) {
-                gFrameBuffer[page    ][x] ^= 0xFFu;
-                gFrameBuffer[page + 1u][x] ^= 0xFFu;
-            }
-        }
+        // Selection indicator: < chevron at right edge, vertically centred.
+        if (c == gMenuCatCursor)
+            s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 5u), page);
     }
 }
 
