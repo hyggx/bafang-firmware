@@ -66,10 +66,17 @@ FONT_EEPROM_BASE = 0xD000
 # 0xFFFF - 0xD000 = 0x2FFF = 12,287 bytes (uint16_t address space limit).
 FONT_EEPROM_SIZE = 0x2FFF  # 12 KB − 1
 
-WRITE_CHUNK = 128  # bytes per 0x051D / 0x0535 write (max 128)
+WRITE_CHUNK       = 128  # bytes per CMD_0535 write (SPI direct path)
+EEPROM_WRITE_CHUNK = 8   # bytes per CMD_051D write; must be 8 (EEPROM_WriteBuffer granularity)
+                         # 128-byte blocks cause 16 × sector-erase per block (~400 ms each =
+                         # 6.4 s worst case), which exceeds a 5 s timeout when re-flashing over
+                         # existing data.  Sending 8 bytes per CMD_051D keeps each round-trip
+                         # to one sector-erase (~400 ms max), safely within TIMEOUT_S.
 READ_CHUNK  = 128  # bytes per 0x051B / 0x0537 read  (max 128)
 BAUD_RATE   = 38400
-TIMEOUT_S   = 5.0  # generous: 128-byte write may trigger sector erase (~300 ms)
+TIMEOUT_S   = 3.0  # seconds; one CMD_051D (8 bytes) triggers at most one 4 KB sector erase
+                   # (PY25Q16 spec: typ 50 ms, max 400 ms) — 3 s is a safe margin.
+                   # CMD_0535 (direct SPI, 128 bytes) also causes one erase → 3 s is fine.
 
 
 # ---------------------------------------------------------------------------
@@ -362,8 +369,9 @@ def main() -> None:
         total   = len(font_data)
         written = 0
         print("Writing: ", end="", flush=True)
-        for off in range(0, total, WRITE_CHUNK):
-            chunk = font_data[off : off + WRITE_CHUNK]
+        step = WRITE_CHUNK if use_direct_spi else EEPROM_WRITE_CHUNK
+        for off in range(0, total, step):
+            chunk = font_data[off : off + step]
             try:
                 if use_direct_spi:
                     _write_block_spi(ser, SPI_FONT_BASE + off, chunk)
@@ -374,9 +382,10 @@ def main() -> None:
                 print(f"\nERROR at {addr_str}: {exc}", file=sys.stderr)
                 sys.exit(1)
             written += len(chunk)
+            dot_interval = step * 128  # print '.' every ~1 KB
             print(
                 ".",
-                end=("" if written % (WRITE_CHUNK * 32) else "\n         "),
+                end=("" if written % dot_interval else "\n         "),
                 flush=True,
             )
         print(f"  {written:,} bytes written.")
