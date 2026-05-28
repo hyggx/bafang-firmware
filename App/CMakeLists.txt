@@ -56,10 +56,20 @@ target_sources(App INTERFACE
     l10n/strings_en.c
     l10n/strings_zh.c
     l10n/cjk_font.c
-    l10n/cjk_font_data.c
     ime/ime.c
     ime/pinyin_table.c
 )
+
+# CJK font storage backend
+# CJK_USE_SPI_FLASH=ON  → read glyphs from SPI Flash 0x020000 (cjk_font_data.c
+#                         excluded, saves ~6.2 KB MCU Flash)
+# CJK_USE_SPI_FLASH=OFF → fall back to embedded MCU Flash array (222-glyph
+#                         menu subset, useful during bring-up without SPI Flash)
+if(CJK_USE_SPI_FLASH)
+    target_compile_definitions(App INTERFACE CJK_USE_SPI_FLASH)
+else()
+    target_sources(App INTERFACE l10n/cjk_font_data.c)
+endif()
 
 
 macro(enable_feature feature)

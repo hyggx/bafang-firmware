@@ -73,7 +73,8 @@
         "ENABLE_FEAT_F4HWN_LOGO": false,
         "ENABLE_AGC_SHOW_DATA": false,
         "ENABLE_UART_RW_BK_REGS": false,
-        "ENABLE_SWD": false
+        "ENABLE_SWD": false,
+        "CJK_USE_SPI_FLASH": true
       }
     },
     {
