@@ -805,6 +805,30 @@ static void UI_MENU_DrawTopRightRoundedBadge(const char *text, const uint8_t lin
 // ── Category selection screen ──────────────────────────────────────────────
 // Renders one category per display-page (row).  ASCII-only because the CJK
 // glyph height (12 px) does not fit in a single 8-px page row.
+// Draw an 8×8 icon vertically centred inside a 16-pixel (2-page) LCD slot.
+//
+//  Vertical alignment (bit 0 = topmost pixel of each frame-buffer page):
+//    CJK glyphs (12 px) occupy slot rows 0–11 → visual centre at row 5.5
+//    8 px icon with 2 px top pad occupies slot rows 2–9 → centre at row 5.5
+//    The 2 px shift is encoded as:
+//      icon rows 0–5  →  page0 bits 2–7   (low 6 bits shifted left by 2)
+//      icon rows 6–7  →  page1 bits 0–1   (high 2 bits shifted right by 6)
+//
+//  Parameters:
+//    icon  8-byte column-major bitmap; byte[c] bit 0 = top, bit 7 = bottom.
+//    x     starting LCD column; guard prevents gFrameBuffer OOB access.
+//    page  top page of the 2-page slot (must be < FRAME_LINES - 1).
+static void s_draw_icon_16px(const uint8_t *icon, uint8_t x, uint8_t page)
+{
+    for (uint8_t c = 0u; c < 8u && (x + c) < LCD_WIDTH; c++) {
+        const uint8_t b = icon[c];
+        /* icon rows 0–5 → frame page rows 2–7 (2 px top padding) */
+        gFrameBuffer[page    ][x + c] |= (uint8_t)((b & 0x3Fu) << 2u);
+        /* icon rows 6–7 → frame page+1 rows 0–1 */
+        gFrameBuffer[page + 1u][x + c] |= (uint8_t)(b >> 6u);
+    }
+}
+
 static void UI_DisplayMenuCat(void)
 {
     static const char * const kCatNameEn[MENU_CAT_COUNT] = {
@@ -814,7 +838,31 @@ static void UI_DisplayMenuCat(void)
         "信号设置", "频道设置", "双音多频", "显示设置", "系统设置"
     };
 
-    // 3 big-font items (16px each = 2 pages) on pages 0-5; pages 6-7 empty.
+    // 8×8 category icons, column-major (bit 0 = top, bit 7 = bottom).
+    // Indexed by MENU_CAT_* (0 = Signal … 4 = System).
+    //
+    // Signal  : vertical antenna pole (rows 0,3-7) + two symmetric arcs (rows 1-2)
+    //           + horizontal base (row 7, cols 2-4)
+    // Channel : three evenly-spaced horizontal bars (rows 1, 3, 5)
+    // DTMF    : 3×3 keypad dot grid (2×2 pixel dots at rows 1-2, 4-5; hash at row 7)
+    // Display : monitor outline (rows 1-5) + stand legs (row 6) + base (row 7)
+    // System  : simplified 6-tooth gear outline (centre hole implied by gap at row 3)
+    static const uint8_t kCatIcons[MENU_CAT_COUNT][8] = {
+        {0x00, 0x04, 0x82, 0xF9, 0x82, 0x04, 0x00, 0x00}, // Signal
+        {0x00, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x00}, // Channel
+        {0x00, 0x36, 0x00, 0xB6, 0x00, 0x36, 0x00, 0x00}, // DTMF
+        {0x00, 0x3E, 0xA2, 0xE2, 0xE2, 0xA2, 0x3E, 0x00}, // Display
+        {0x1C, 0x3E, 0x22, 0x77, 0x22, 0x3E, 0x1C, 0x00}, // System
+    };
+
+    // Left-pointing selection triangle (◄): tip at col 0 (row 3 only),
+    // base at col 3 (rows 0–6).  Placed at x = LCD_WIDTH-5 so the base
+    // lands at column 126 and the single-pixel tip at column 123.
+    static const uint8_t kCatArrow[8] = {
+        0x08, 0x1C, 0x3E, 0x7F, 0x00, 0x00, 0x00, 0x00,
+    };
+
+    // 3 big-font items (16 px each = 2 pages) on pages 0–5; pages 6–7 empty.
     const uint8_t visible = 3u;
     uint8_t scroll = 0u;
     if (gMenuCatCursor >= visible)
@@ -827,15 +875,19 @@ static void UI_DisplayMenuCat(void)
         if (c >= MENU_CAT_COUNT) break;
         const uint8_t page = (uint8_t)(vi * 2u);
 
+        // Icon: 8×8, vertically centred in the 16 px slot (2 px top / 6 px bottom).
+        s_draw_icon_16px(kCatIcons[c], 1u, page);
+
+        // Name: x = 11  (1 px left margin + 8 px icon + 2 px gap).
         const char *name = (g_lang == LANG_ZH) ? kCatNameZh[c] : kCatNameEn[c];
         if (g_lang == LANG_ZH)
-            UI_PrintStringUTF8(name, 4, page);
+            UI_PrintStringUTF8(name, 11, page);
         else
-            UI_PrintString(name, 4, 0, page, 8);
+            UI_PrintString(name, 11, 0, page, 8);
 
-        // Selection indicator: a "<" at the right edge (no background inversion)
+        // Selection arrow: ◄ at right edge, same vertical centre as the text.
         if (c == gMenuCatCursor)
-            UI_PrintString("<", LCD_WIDTH - 14, 0, page, 8);
+            s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 5u), page);
     }
 }
 
