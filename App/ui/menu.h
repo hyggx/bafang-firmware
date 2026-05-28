@@ -22,6 +22,7 @@
 
 #include "audio.h"     // VOICE_ID_t
 #include "settings.h"
+#include "ime/ime.h"
 
 typedef struct {
     const char  name[7];    // menu display area only has room for 6 characters
@@ -267,6 +268,7 @@ extern char              edit_original[17];
 extern char              edit[17];
 extern int               edit_index;
 extern bool              edit_is_uppercase;
+extern ImeCtx_t          g_ime;  /* pinyin IME context */
 
 void UI_DisplayMenu(void);
 int  UI_MENU_GetCurrentMenuId();

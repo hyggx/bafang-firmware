@@ -40,6 +40,7 @@
 #include "helper.h"
 #include "inputbox.h"
 #include "menu.h"
+#include "../l10n/cjk_font.h"
 #include "menu_sub_values_zh.h"
 #include "ui.h"
 #include "welcome.h"
@@ -740,6 +741,7 @@ char    edit_original[17]; // a copy of the text before editing so that we can e
 char    edit[17];
 int     edit_index;
 bool    edit_is_uppercase = false;
+ImeCtx_t g_ime;  /* pinyin IME context — reset each time channel-name editing starts */
 
 #ifndef ENABLE_CUSTOM_MENU_LAYOUT
 static void UI_MENU_DrawTopRightRoundedBadge(const char *text, const uint8_t line, const bool center_in_area, const uint8_t area_x1, const uint8_t area_x2)
@@ -1208,29 +1210,87 @@ void UI_DisplayMenu(void)
                 {   // show the channel name being edited
                     //UI_PrintString(edit, menu_item_x1, 0, 4, 8);
                     UI_PrintString(edit, menu_item_x1, menu_item_x2, 4, 8);
-                    if (edit_index < 10) {
-                        // Cursor underlines aligned under the centred edit text (10 chars × 8px
-                        // centred in LCD_WIDTH=128: start_x = (128-80)/2 = 24).
-                        // Edit text is at page 4 (rows 32-47); cursor rows = 32 + 13 = 45, 46.
-                        uint8_t x = (uint8_t)((LCD_WIDTH - 10u * 8u) / 2u);
-                        for (uint8_t i = 0; i < 10; i++) 
+
+                    /* --- cursor underline --- */
+                    /* Each visible character position corresponds to variable-
+                     * width chars: ASCII = 1 byte / 8px, CJK = 3 bytes / 13px.
+                     * Simple approach: walk edit[] counting pixel positions.  */
+                    {
+                        /* cursor_x tracks pixel position of current edit_index */
+                        uint8_t cx = (uint8_t)((LCD_WIDTH - 10u * 8u) / 2u);
+                        int byte_pos = 0;
+                        while (byte_pos < edit_index && byte_pos < CHANNEL_NAME_MAX_BYTES)
                         {
-                            if (i != edit_index) 
-                            {
-                                if (edit[i] != 'g' && edit[i] != 'j')
-                                {
-                                    UI_DrawLineBuffer(gFrameBuffer, x, 45, x + 6, 45, 1);
-                                }
+                            uint8_t b = (uint8_t)edit[byte_pos];
+                            if (b >= 0xE0u) {
+                                cx += 13u;  /* CJK 12px + 1px gap */
+                                byte_pos += 3;
+                            } else {
+                                cx += 8u;   /* ASCII 7px + 1px gap */
+                                byte_pos++;
                             }
-                            else 
-                            {
-                                UI_DrawLineBuffer(gFrameBuffer, x + 2, 46, x + 4, 46, 1);
-                                UI_DrawPixelBuffer(gFrameBuffer, x + 3, 45, 1);
-                            }
-                            x += 8;
                         }
-                        // Case indicator right-aligned at page 2 (top of value area, clear of edit text)
-                        UI_PrintStringSmallNormal(edit_is_uppercase ? "ABC" : "abc", 107, 0, 2);
+                        /* draw cursor */
+                        UI_DrawLineBuffer(gFrameBuffer, cx + 2, 46, cx + 4, 46, 1);
+                        UI_DrawPixelBuffer(gFrameBuffer, cx + 3, 45, 1);
+                    }
+
+                    /* --- mode / IME overlay --- */
+                    if (g_ime.mode == IME_MODE_PINYIN)
+                    {
+                        /* Line 5 (page 5): preedit bar or letter candidates */
+                        if (g_ime.cand_count > 0)
+                        {
+                            /* Show "1:字 2:字 ..." Unicode candidates at page 5 */
+                            uint8_t cx2 = 2u;
+                            char num_buf[3] = "1:";
+                            for (uint8_t ci = 0; ci < g_ime.cand_count && cx2 < 118u; ci++)
+                            {
+                                num_buf[0] = (char)('1' + ci);
+                                UI_PrintStringSmallNormal(num_buf, cx2, 0, 5);
+                                cx2 += 10u;  /* "N:" = 2 small chars ~5px each */
+                                /* Render the CJK candidate glyph via UTF-8 */
+                                char utf8[4];
+                                uint16_t cp = g_ime.candidates[ci];
+                                utf8[0] = (char)(0xE0u | (cp >> 12));
+                                utf8[1] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+                                utf8[2] = (char)(0x80u | (cp & 0x3Fu));
+                                utf8[3] = '\0';
+                                UI_PrintStringUTF8(utf8, cx2, 5u);
+                                cx2 += (uint8_t)(CJK_GLYPH_W + 3u);  /* 12px + gap */
+                            }
+                            if (g_ime.cand_total > IME_CANDS_VISIBLE)
+                            {
+                                UI_PrintStringSmallNormal(">", 122, 0, 5);
+                            }
+                        }
+                        else if (g_ime.letters_count > 0)
+                        {
+                            /* Show "1:b 2:i 3:n ..." letter candidates */
+                            char lbuf[24];
+                            uint8_t lpos = 0;
+                            for (uint8_t li = 0; li < g_ime.letters_count && lpos + 4u < (uint8_t)sizeof(lbuf); li++)
+                            {
+                                lbuf[lpos++] = (char)('1' + li);
+                                lbuf[lpos++] = ':';
+                                lbuf[lpos++] = g_ime.letters_buf[li];
+                                lbuf[lpos++] = ' ';
+                            }
+                            lbuf[lpos] = '\0';
+                            UI_PrintStringSmallNormal(lbuf, 2, 0, 5);
+                        }
+                        else if (g_ime.preedit_len > 0)
+                        {
+                            /* Show the current preedit syllable */
+                            UI_PrintStringSmallNormal(g_ime.preedit, 2, 0, 5);
+                        }
+                        /* Mode indicator: "拼" */
+                        UI_PrintStringSmallNormal(IME_ModeLabel(&g_ime), 107, 0, 2);
+                    }
+                    else
+                    {
+                        /* Non-PINYIN modes: show "abc" / "ABC" / "123" */
+                        UI_PrintStringSmallNormal(IME_ModeLabel(&g_ime), 107, 0, 2);
                     }
                 }
 

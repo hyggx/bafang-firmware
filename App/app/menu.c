@@ -41,6 +41,7 @@
 #include "ui/inputbox.h"
 #include "ui/menu.h"
 #include "ui/ui.h"
+#include "ime/ime.h"
 
 
 uint8_t gUnlockAllTxConfCnt;
@@ -1535,6 +1536,33 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
         if (edit_index >= CHANNEL_NAME_MAX_BYTES)
             return;
 
+        /* ---- PINYIN MODE ---- */
+        if (g_ime.mode == IME_MODE_PINYIN)
+        {
+            ImeState_t st = IME_Feed(&g_ime, Key, bKeyHeld);
+
+            if (st == IME_CANDIDATES)
+            {   /* Key was a candidate selection (KEY_1..KEY_6) */
+                uint8_t idx = (uint8_t)(Key - KEY_1);
+                if (idx < g_ime.cand_count)
+                {
+                    uint16_t cp = IME_PickCandidate(&g_ime, idx);
+                    if (cp != 0 && edit_index + 3 <= CHANNEL_NAME_MAX_BYTES)
+                    {   /* UTF-8 encode BMP codepoint (U+0800..U+FFFF) */
+                        edit[edit_index]     = (char)(0xE0u | (cp >> 12));
+                        edit[edit_index + 1] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+                        edit[edit_index + 2] = (char)(0x80u | (cp & 0x3Fu));
+                        edit_index += 3;
+                        edit_last_key = 255;
+                    }
+                }
+            }
+
+            gRequestDisplayScreen = DISPLAY_MENU;
+            return;
+        }
+
+        /* ---- T9 MULTI-TAP (LOWER / UPPER / DIGIT) ---- */
         uint8_t key_idx = Key - KEY_0;
 
         if (bKeyHeld)
@@ -1752,12 +1780,27 @@ static void MENU_Key_EXIT(bool bKeyPressed, bool bKeyHeld)
             if (bKeyHeld)
                 return; // release after a long press, keep editing
 
+            /* In PINYIN mode: backspace into preedit/candidates first */
+            if (g_ime.mode == IME_MODE_PINYIN &&
+                (g_ime.preedit_len > 0 || g_ime.cand_count > 0 || g_ime.letters_count > 0))
+            {
+                IME_Backspace(&g_ime);
+                gRequestDisplayScreen = DISPLAY_MENU;
+                return;
+            }
+
             if (edit_index == 0)
                 goto Skip;
 
             if (edit_index > 0)
             {   // step back one character while editing the channel name
-                edit_index--;
+                /* Step back 3 bytes if previous char was UTF-8 CJK (0xE0-0xEF) */
+                if (edit_index >= 3 &&
+                    (uint8_t)edit[edit_index - 3] >= 0xE0u &&
+                    (uint8_t)edit[edit_index - 3] <= 0xEFu)
+                    edit_index -= 3;
+                else
+                    edit_index--;
                 edit_last_key = 255;
                 gAskForConfirmation = 0;
                 gRequestDisplayScreen = DISPLAY_MENU;
@@ -1926,6 +1969,7 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
             edit_last_key = 255;
             edit_char_index = 0;
             edit_is_uppercase = false;
+            IME_Reset(&g_ime);  /* start in LOWER mode; KEY_STAR cycles modes */
 
             // make a copy so we can test for change when exiting the menu item
             memcpy(edit_original, edit, sizeof(edit_original));
@@ -2028,14 +2072,13 @@ static void MENU_Key_STAR(const bool bKeyPressed, const bool bKeyHeld)
     if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME && edit_index >= 0)
     {   // currently editing the channel name
 
-        if (edit_index < 10)
-        {
-            edit[edit_index] = !bKeyHeld ? '-' : '*';
-            edit_last_key = 255;
+        /* KEY_STAR cycles input mode: abc → ABC → 123 → 拼 → abc … */
+        ImeMode_t new_mode = IME_CycleMode(&g_ime);
+        /* Keep legacy edit_is_uppercase in sync for the ASCII display code */
+        edit_is_uppercase = (new_mode == IME_MODE_UPPER);
+        edit_last_key = 255;
 
-            gRequestDisplayScreen = DISPLAY_MENU;
-        }
-
+        gRequestDisplayScreen = DISPLAY_MENU;
         return;
     }
 
@@ -2086,7 +2129,15 @@ static void MENU_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 
     if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME && gIsInSubMenu && edit_index >= 0)
     {   // change the character
-        if (edit_index < 10 && Direction != 0)
+        if (g_ime.mode == IME_MODE_PINYIN && g_ime.cand_count > 0)
+        {   /* Scroll through Unicode candidates */
+            IME_ScrollCandidates(&g_ime, Direction);
+            gRequestDisplayScreen = DISPLAY_MENU;
+            return;
+        }
+
+        if (edit_index < CHANNEL_NAME_MAX_BYTES && Direction != 0 &&
+            g_ime.mode != IME_MODE_PINYIN)
         {
             const char   unwanted[] = "$%&!\"':;?^`|{}_";
             char         c          = edit[edit_index] + Direction;

@@ -17,7 +17,21 @@
 #include "cjk_font.h"
 #include <string.h>
 
+#ifdef CJK_USE_SPI_FLASH
+#  include "driver/py25q16.h"
+/* Read `len` bytes from (CJK_FONT_BASE + offset) into buf. */
+static void cjk_read(uint32_t offset, void *buf, uint32_t len)
+{
+    PY25Q16_ReadBuffer(CJK_FONT_BASE + offset, (uint8_t *)buf, (uint16_t)len);
+}
+#else
 extern const uint8_t g_cjk_font_data[];
+/* Read `len` bytes from MCU Flash array at offset. */
+static void cjk_read(uint32_t offset, void *buf, uint32_t len)
+{
+    memcpy(buf, g_cjk_font_data + offset, len);
+}
+#endif
 
 static CjkCache_t s_cache;
 
@@ -41,7 +55,7 @@ static uint16_t s_bsearch(uint16_t cp)
         CjkIndexEntry_t entry;
         uint32_t addr = CJK_HEADER_SZ
                         + (uint32_t)mid * CJK_INDEX_ENTRY_SZ;
-        memcpy(&entry, g_cjk_font_data + addr, sizeof(entry));
+        cjk_read(addr, &entry, sizeof(entry));
 
         if (entry.codepoint == cp)
             return mid;
@@ -90,9 +104,9 @@ bool CJK_Init(void)
     for (uint8_t i = 0; i < CJK_CACHE_SLOTS; i++)
         s_cache.lru_order[i] = i;
 
-    /* Read and validate font header from embedded array */
+    /* Read and validate font header */
     CjkFontHeader_t hdr;
-    memcpy(&hdr, g_cjk_font_data, sizeof(hdr));
+    cjk_read(0, &hdr, sizeof(hdr));
 
     if (hdr.magic   != CJK_FONT_MAGIC   ||
         hdr.version != CJK_FONT_VERSION  ||
@@ -129,11 +143,11 @@ bool CJK_GetGlyph(uint16_t cp, uint8_t out_bitmap[CJK_GLYPH_BYTES])
     if (glyph_idx == UINT16_MAX)
         return false;   /* glyph not in font */
 
-    /* 3. Read bitmap from embedded array */
+    /* 3. Read bitmap from font storage */
     uint32_t bmp_addr = s_cache.bitmap_off
                         + (uint32_t)glyph_idx * CJK_GLYPH_BYTES;
     uint8_t bitmap[CJK_GLYPH_BYTES];
-    memcpy(bitmap, g_cjk_font_data + bmp_addr, CJK_GLYPH_BYTES);
+    cjk_read(bmp_addr, bitmap, CJK_GLYPH_BYTES);
 
     /* 4. Evict LRU slot and store new glyph */
     uint8_t victim = s_lru_victim();

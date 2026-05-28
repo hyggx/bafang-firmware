@@ -57,6 +57,8 @@ target_sources(App INTERFACE
     l10n/strings_zh.c
     l10n/cjk_font.c
     l10n/cjk_font_data.c
+    ime/ime.c
+    ime/pinyin_table.c
 )
 
 

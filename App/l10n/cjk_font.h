@@ -37,9 +37,23 @@
  * Total reads for one lookup: O(log₂ N) × 4 bytes = ≤ 14 reads for 6000 glyphs.
  * ========================================================================== */
 
-/* Font is embedded in MCU internal flash as g_cjk_font_data[] (cjk_font_data.c).
- * All offsets below are relative to the start of that array.               */
+/* ---------------------------------------------------------------------------
+ * Storage backend selection
+ *
+ * Define CJK_USE_SPI_FLASH (e.g. in CMakeLists.txt or via -DCJK_USE_SPI_FLASH)
+ * to read glyph data from the external PY25Q16 SPI Flash at CJK_FONT_BASE.
+ * Without it, the build falls back to g_cjk_font_data[] in MCU Flash
+ * (cjk_font_data.c — 222 glyphs, ~6.2 KB, only covers menu strings).
+ *
+ * The Bafang preset enables CJK_USE_SPI_FLASH so that the full 1355-glyph
+ * font (128 KB in SPI Flash) is available for arbitrary channel names.
+ * --------------------------------------------------------------------------- */
+#ifndef CJK_USE_SPI_FLASH
 extern const uint8_t g_cjk_font_data[];
+#endif
+
+/* SPI Flash base address for the CJK font database (see layout comment above). */
+#define CJK_FONT_BASE  0x010000u
 #define CJK_FONT_MAGIC      0x464Du     /* "FM" little-endian                 */
 #define CJK_FONT_VERSION    1u
 #define CJK_GLYPH_W         12u         /* pixels per row                     */
