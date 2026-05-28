@@ -47,6 +47,11 @@
 #include "misc.h"
 #include "settings.h"
 #include "version.h"
+#if defined(ENABLE_CHINESE) && defined(CJK_USE_SPI_FLASH)
+    #include "l10n/cjk_font.h"
+    /* EEPROM virtual address at which the CJK font begins (eeprom_compat.c). */
+    #define CJK_EEPROM_FONT_BASE  0xD000u
+#endif
 
 #if defined(ENABLE_OVERLAY)
     #include "sram-overlay.h"
@@ -524,6 +529,23 @@ static void CMD_051D(uint32_t Port, const uint8_t *pBuffer)
 
         if (bReloadEeprom)
             SETTINGS_InitEEPROM();
+
+#if defined(ENABLE_CHINESE) && defined(CJK_USE_SPI_FLASH)
+        /* If any write touched the CJK font region, invalidate the glyph cache
+         * so it is re-read from the updated SPI Flash on the next render call.
+         * Without this, the in-RAM s_cache.bitmap_off (loaded at boot from the
+         * old font header) stays stale after font re-flash until next reboot,
+         * causing all glyphs to render 8 bytes off → garbled characters. */
+        {
+            unsigned int j;
+            for (j = 0; j < (pCmd->Size / 8u); j++) {
+                if ((pCmd->Offset + j * 8u) >= CJK_EEPROM_FONT_BASE) {
+                    CJK_Invalidate();
+                    break;
+                }
+            }
+        }
+#endif
     }
 
     SendReply(Port, &Reply, sizeof(Reply));

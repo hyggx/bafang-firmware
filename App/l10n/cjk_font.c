@@ -126,8 +126,13 @@ bool CJK_FontAvailable(void)
 
 bool CJK_GetGlyph(uint16_t cp, uint8_t out_bitmap[CJK_GLYPH_BYTES])
 {
-    if (!s_cache.header_valid)
-        return false;
+    if (!s_cache.header_valid) {
+        /* Cache was invalidated (e.g. font re-flashed via UART). Re-read the
+         * font header from SPI Flash so the correct bitmap_off is used.     */
+        CJK_Init();
+        if (!s_cache.header_valid)
+            return false;
+    }
 
     /* 1. Cache hit? */
     for (uint8_t i = 0; i < CJK_CACHE_SLOTS; i++) {
