@@ -889,7 +889,7 @@ static void UI_DisplayMenuCat(void)
 
         // Selection indicator: < chevron at right edge, vertically centred.
         if (c == gMenuCatCursor)
-            s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 5u), page);
+            s_draw_icon_16px(kCatArrow, (uint8_t)(LCD_WIDTH - 8u), page);
     }
 }
 
