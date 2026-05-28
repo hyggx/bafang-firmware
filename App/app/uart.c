@@ -107,6 +107,17 @@ typedef struct {
     } Data;
 } REPLY_051B_t;
 
+/*
+ * CMD_051D 写入粒度限制
+ * --------------------
+ * 固件内部以 8 字节为单位调用 EEPROM_WriteBuffer（即 pCmd->Size 必须是 8 的倍数，
+ * 且每次 UART 帧携带的有效数据建议恰好为 8 字节）。
+ * 原因：每次 EEPROM_WriteBuffer(8 字节) 最终调用 PY25Q16_WriteBuffer，后者会
+ * 触发整个 4 KB 扇区的「读→擦除→重写」，耗时最长 400 ms。
+ * 若上位机一帧携带 128 字节（Size=128），则循环 16 次 × 400 ms = 6.4 s，
+ * 超过合理的 UART 超时，导致上位机认为写入失败、Flash 数据损坏（乱码）。
+ * flash_font.py 已按 8 字节/帧发送，请勿改回 128 字节/帧。
+ */
 typedef struct {
     Header_t Header;
     uint16_t Offset;

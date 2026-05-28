@@ -250,6 +250,19 @@ void PY25Q16_ReadBuffer(uint32_t Address, void *pBuffer, uint32_t Size)
     CS_Release();
 }
 
+/*
+ * WRITE LATENCY WARNING
+ * ---------------------
+ * 每次调用 PY25Q16_WriteBuffer 都会触发「读→比较→按需擦除→重写」整个 4 KB 扇区的
+ * SectorCache 流程。扇区擦除耗时 typ 50 ms / max 400 ms（PY25Q16 规格书）。
+ *
+ * 因此，上层调用者必须保证每次调用之间的 UART 超时大于 400 ms。
+ * 特别地，CMD_051D 内部每次只写 8 字节（EEPROM_WriteBuffer 粒度固定为 8 字节），
+ * 每次 8 字节写入最多触发一次扇区擦除。如果 CMD_051D 一次性携带 128 字节有效载荷，
+ * 则内部会循环调用 16 次，累计最坏耗时 16 × 400 ms = 6.4 s，远超任何合理的
+ * UART 超时设置，导致上位机超时后 SPI Flash 数据只有头部写入、主体仍为旧数据，
+ * 进而引发乱码。上位机（flash_font.py）应以 8 字节为单位逐条发送 CMD_051D。
+ */
 void PY25Q16_WriteBuffer(uint32_t Address, const void *pBuffer, uint32_t Size, bool Append)
 {
 #ifdef DEBUG
