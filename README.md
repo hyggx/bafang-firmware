@@ -217,22 +217,24 @@ pip install pyserial
 
 | 文件 | 字形数 | 大小 | 适用场景 |
 |------|--------|------|---------|
-| `tools/cjk_font_menu.bin` | 211 | ≈ 5.9 KB | 仅菜单固定字符串（今日可刷，无需新固件） |
-| `tools/cjk_font.bin` | 1372 | ≈ 37.5 KB | 完整 IME 拼音候选字（需配套固件） |
+| `tools/cjk_font_menu.bin` | 175 | ≈ 4.8 KB | 仅菜单固定字符串（今日可刷，无需新固件） |
+| `tools/cjk_font.bin` | 1136 | ≈ 31 KB | 完整 IME 拼音候选字（需配套固件） |
 
 重新生成字体（需要 Python 3 + `fonttools`）：
 
 ```bash
-# 仅菜单字体（约 6 KB，适合通过 EEPROM 协议写入）
+# 仅菜单字体（约 4.8 KB，适合通过 EEPROM 协议写入）
 python3 tools/gen_cjk_font.py gen \
     --bdf tools/wenquanyi_9pt.bdf \
     --subset App/l10n/strings_zh.c \
+    --subset App/ui/menu.c \
     --out tools/cjk_font_menu.bin
 
-# 完整 IME 字体（约 37.5 KB，需 CMD_0535 直写路径）
+# 完整 IME 字体（约 31 KB，需 CMD_0535 直写路径）
 python3 tools/gen_cjk_font.py gen \
     --bdf tools/wenquanyi_9pt.bdf \
     --subset App/l10n/strings_zh.c \
+    --subset App/ui/menu.c \
     --subset App/ime/pinyin_table.c \
     --out tools/cjk_font.bin
 ```
