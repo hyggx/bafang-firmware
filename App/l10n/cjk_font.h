@@ -7,7 +7,8 @@
 /* ==========================================================================
  * CJK 12×12 glyph database — SPI Flash layout
  *
- * Base address: 0x010000 (128 KB reserved, 0x010000–0x02FFFF)
+ * Base address: 0x020000 (starts at the 3rd 64 KB sector; clear of all
+ * EEPROM-protocol-mapped regions which top out at SPI 0x011FFF)
  *
  * Layout:
  *
@@ -52,8 +53,10 @@
 extern const uint8_t g_cjk_font_data[];
 #endif
 
-/* SPI Flash base address for the CJK font database (see layout comment above). */
-#define CJK_FONT_BASE  0x010000u
+/* SPI Flash base address for the CJK font database (see layout comment above).
+ * Must NOT overlap with EEPROM-protocol regions (highest = SPI 0x011FFF).
+ * EEPROM virtual window 0xD000-0xFFFE maps here for flash_font.py writes. */
+#define CJK_FONT_BASE  0x020000u
 #define CJK_FONT_MAGIC      0x464Du     /* "FM" little-endian                 */
 #define CJK_FONT_VERSION    1u
 #define CJK_GLYPH_W         12u         /* pixels per row                     */

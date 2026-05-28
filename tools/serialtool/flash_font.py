@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """flash_font.py — Write the CJK font binary to Bafang (UV-K1) SPI Flash.
 
-The font is written to EEPROM virtual address 0xD000 which the firmware maps
-to SPI Flash physical address 0x1F0000 via the ADDR_MAPPINGS table in
-driver/eeprom_compat.c.
+The font is written to EEPROM virtual address 0xD000, which the firmware maps
+to SPI Flash physical address 0x020000 via the ADDR_MAPPINGS table in
+driver/eeprom_compat.c (entry: _MK_MAPPING(0x020000, 0xD000, 0xFFFF)).
+
+Window limitation: the EEPROM virtual address field is uint16_t, so the
+mapping window tops out at 0xFFFF → only 12 KB (0xD000..0xFFFE) is writable
+via this protocol.  The current 222-glyph font binary is 6232 bytes and fits
+comfortably.  For the full 1359-glyph font (≈38 KB) a dedicated CMD_053x
+direct-SPI write command will be needed.
 
 The radio firmware must be built with ENABLE_CHINESE defined.
 
@@ -29,8 +35,8 @@ UART protocol summary (UV-K5/K6/K1 proprietary):
     rest of the session, so all frames sent by this tool are plaintext.
 
 Address mapping (firmware driver/eeprom_compat.c):
-    EEPROM virtual 0xD000–0xDFFF  →  SPI Flash physical 0x1F0000–0x1F0FFF
-    Font is 3,656 bytes; 4 KB mapping window is sufficient.
+    EEPROM virtual 0xD000–0xFFFE  →  SPI Flash physical 0x020000–0x022FFE
+    Current font (222 glyphs) is 6,232 bytes; 12 KB window is sufficient.
 """
 
 import argparse
@@ -54,10 +60,11 @@ _OBFUSCATION = bytes(
     ]
 )
 
-# EEPROM virtual address for the font (maps to SPI Flash 0x1F0000)
+# EEPROM virtual address for the font (maps to SPI Flash 0x020000)
 FONT_EEPROM_BASE = 0xD000
-# Size of the EEPROM virtual window reserved for the font
-FONT_EEPROM_SIZE = 0x1000  # 4 KB
+# Size of the EEPROM virtual window reserved for the font.
+# 0xFFFF - 0xD000 = 0x2FFF = 12,287 bytes (uint16_t address space limit).
+FONT_EEPROM_SIZE = 0x2FFF  # 12 KB − 1
 
 WRITE_CHUNK = 128  # bytes per 0x051D write (must be multiple of 8, max 128)
 READ_CHUNK  = 128  # bytes per 0x051B read  (max 128; firmware buffer limit)
@@ -275,8 +282,8 @@ def main() -> None:
 
     print(f"Font file  : {args.font}  ({len(font_data):,} bytes)")
     print(f"EEPROM virt: 0x{FONT_EEPROM_BASE:04X}..0x{end_addr:04X}")
-    print(f"SPI Flash  : 0x{0x1F0000 + (FONT_EEPROM_BASE - FONT_EEPROM_BASE):06X}"
-          f"..0x{0x1F0000 + (end_addr - FONT_EEPROM_BASE):06X}  (physical)")
+    spi_base = 0x020000 + (FONT_EEPROM_BASE - FONT_EEPROM_BASE)
+    print(f"SPI Flash  : 0x{spi_base:06X}..0x{spi_base + (end_addr - FONT_EEPROM_BASE):06X}  (physical)")
     print(f"Port       : {args.port} @ {args.baud} baud")
 
     with serial.Serial(args.port, args.baud, timeout=TIMEOUT_S) as ser:
