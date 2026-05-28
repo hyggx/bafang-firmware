@@ -909,20 +909,22 @@ static void UI_DisplayMenuCat(void)
     }
 
     // Page indicator dots in the bottom row (gFrameBuffer[6], 8 px tall).
-    // Two dots of 3 columns each, separated by 2 columns, centred on screen.
-    // Active dot:   3 solid rows (bits 2-4 = 0x1C)
-    // Inactive dot: top + bottom rows only (bits 2, 4 = 0x14) → open circle
+    // Each dot is 5 columns wide; dots are separated by 8 columns so they
+    // are clearly distinct.  Vertically the bits are centred in the 8-px row:
+    //   Active dot:   5 solid px  (bits 1-5 = 0x3E) — filled rectangle
+    //   Inactive dot: outline only (bits 1,5 = 0x22) — hollow rectangle
     {
         const uint8_t page_count = (MENU_CAT_COUNT + visible - 1u) / visible; // 2
-        // total width = page_count * 3 + (page_count-1) * 2
-        const uint8_t total_w = (uint8_t)(page_count * 3u + (page_count - 1u) * 2u);
+        const uint8_t dot_w   = 5u;   // columns per dot
+        const uint8_t dot_gap = 8u;   // columns between dots
+        const uint8_t stride  = (uint8_t)(dot_w + dot_gap);
+        const uint8_t total_w = (uint8_t)(page_count * dot_w + (page_count - 1u) * dot_gap);
         const uint8_t dot_x   = (uint8_t)((LCD_WIDTH - total_w) / 2u);
         for (uint8_t pi = 0u; pi < page_count; pi++) {
-            const uint8_t val = (pi == cur_page) ? 0x1Cu : 0x14u;
-            const uint8_t x   = (uint8_t)(dot_x + pi * 5u);
-            gFrameBuffer[6][x]      = val;
-            gFrameBuffer[6][x + 1u] = val;
-            gFrameBuffer[6][x + 2u] = val;
+            const uint8_t val = (pi == cur_page) ? 0x3Eu : 0x22u;
+            const uint8_t x   = (uint8_t)(dot_x + pi * stride);
+            for (uint8_t col = 0u; col < dot_w; col++)
+                gFrameBuffer[6][x + col] = val;
         }
     }
 }
