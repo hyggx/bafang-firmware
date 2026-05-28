@@ -123,8 +123,8 @@ def main_flash(args, ser):
         print("Cannot load firmware image '{}': {}".format(fw_file, e))
         return
 
-    if len(bl_ver) > 4:
-        print("Invalid bootloader version '{}': more than 4 characters".format(bl_ver))
+    if len(bl_ver) > 16:
+        print("Invalid bootloader version '{}': more than 16 characters".format(bl_ver))
         return
 
     print("Firmware image loaded: {}, size = {}".format(fw_file, len(fw_image)))

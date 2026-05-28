@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: Apache-2.0
- * Pinyin IME state machine implementation.
+ * Pinyin IME — Quansheng-style two-row state machine.
  *
- * Key design decisions vs Dondji:
- *  - Binary search on const pinyin table in MCU Flash (O(log 334) ≈ 9 steps).
- *    Dondji scans 334 entries linearly via ~1000 SPI reads per keystroke.
- *  - All state in caller-owned ImeCtx_t; no file-scope globals.
- *  - No UI code here; IME only manipulates the context and returns state.
- *  - T9 disambiguation: KEY_2-9 shows letters, KEY_1-4 selects; then
- *    auto-search triggers after each letter addition.
+ * Flow:
+ *  1. T9 key(s) pressed → generate all letter combinations → filter to
+ *     valid pinyin prefixes → store as py_opts[], load candidates for [0].
+ *  2. KEY_UP  → cycle py_opt_idx, reload candidates.
+ *  3. KEY_MENU → set cand_focus=true (focus moves to candidate row).
+ *  4. KEY_1-6 with cand_focus → caller picks candidate via IME_PickCandidate.
+ *  5. KEY_UP/DOWN with cand_focus → page through candidates.
+ *  6. KEY_EXIT → IME_Backspace() pops last key or exits cand_focus.
  */
 
 #include <string.h>
@@ -41,78 +42,156 @@ static const char * const kT9Letters[8] = {
     "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"
 };
 
-static void s_set_letters(ImeCtx_t *ctx, KEY_Code_t key)
+/* Returns the index in kPyTable of the first entry whose syllable starts
+ * with `prefix` (length `plen`), or kPyTableLen if none found.
+ * Uses binary search since the table is sorted. */
+static uint16_t s_prefix_first(const char *prefix, uint8_t plen)
 {
-    if (key < KEY_2 || key > KEY_9) return;
-    const char *letters = kT9Letters[key - KEY_2];
-    uint8_t n = 0;
-    while (letters[n] && n < (uint8_t)(sizeof(ctx->letters_buf) - 1u)) {
-        ctx->letters_buf[n] = letters[n];
-        n++;
-    }
-    ctx->letters_buf[n]  = '\0';
-    ctx->letters_count   = n;
-    ctx->letters_key     = key;
-    ctx->letters_idx     = 0;
-}
-
-/* Add a letter to the preedit buffer, then search. */
-static ImeState_t s_add_to_preedit(ImeCtx_t *ctx, char letter)
-{
-    if (ctx->preedit_len >= IME_PREEDIT_MAX)
-        return IME_PREEDIT;
-
-    ctx->preedit[ctx->preedit_len++] = letter;
-    ctx->preedit[ctx->preedit_len]   = '\0';
-    ctx->letters_count               = 0;
-    ctx->no_match                    = false;
-
-    const PinyinEntry_t *entry = PY_BSearch(ctx->preedit);
-    if (entry) {
-        /* Exact syllable match — populate candidates */
-        ctx->cand_offset = 0;
-        ctx->cand_total  = entry->count;
-        uint8_t vis = (entry->count < IME_CANDS_VISIBLE)
-                      ? entry->count : IME_CANDS_VISIBLE;
-        for (uint8_t i = 0; i < vis; i++)
-            ctx->candidates[i] = kPyCandidates[entry->offset + i];
-        ctx->cand_count = vis;
-        return IME_CANDIDATES;
-    }
-
-    /* Prefix search: check if any table entry starts with ctx->preedit */
-    bool has_prefix = false;
-    /* Simple linear scan over the ~334 entries to check prefix validity.
-     * This is O(334) string comparisons in MCU Flash — acceptable since
-     * preedit changes happen at human speed (not per frame). */
-    for (uint16_t i = 0; i < kPyTableLen; i++) {
-        const char *syl = kPyTable[i].syllable;
-        bool match = true;
-        for (uint8_t j = 0; j < ctx->preedit_len; j++) {
-            if (syl[j] != ctx->preedit[j]) { match = false; break; }
+    int lo = 0;
+    int hi = (int)kPyTableLen - 1;
+    int found = (int)kPyTableLen;
+    while (lo <= hi) {
+        int mid = lo + ((hi - lo) >> 1);
+        /* Compare mid's syllable prefix */
+        int cmp = 0;
+        for (uint8_t j = 0; j < plen; j++) {
+            cmp = (int)(uint8_t)kPyTable[mid].syllable[j] - (int)(uint8_t)prefix[j];
+            if (cmp != 0) break;
         }
-        if (match && syl[0] != '\0') { has_prefix = true; break; }
+        if (cmp == 0) { found = mid; hi = mid - 1; } /* may be leftmost */
+        else if (cmp < 0) lo = mid + 1;
+        else              hi = mid - 1;
     }
-
-    if (!has_prefix) {
-        ctx->no_match = true;
-        return IME_PREEDIT;
+    /* Verify the found position actually has this prefix */
+    if (found < (int)kPyTableLen) {
+        for (uint8_t j = 0; j < plen; j++) {
+            if (kPyTable[found].syllable[j] != prefix[j])
+                return (uint16_t)kPyTableLen;
+        }
     }
-    return IME_PREEDIT;
+    return (uint16_t)found;
 }
 
-/* Reload the visible candidate window from current cand_offset. */
-static void s_reload_candidates(ImeCtx_t *ctx)
+/* Returns true if at least one kPyTable entry starts with prefix. */
+static bool s_is_valid_prefix(const char *prefix, uint8_t plen)
 {
-    const PinyinEntry_t *entry = PY_BSearch(ctx->preedit);
-    if (!entry) { ctx->cand_count = 0; return; }
+    return s_prefix_first(prefix, plen) < kPyTableLen;
+}
 
-    uint8_t remain = (uint8_t)(entry->count - ctx->cand_offset);
-    uint8_t vis    = (remain < IME_CANDS_VISIBLE) ? remain : IME_CANDS_VISIBLE;
-    for (uint8_t i = 0; i < vis; i++)
-        ctx->candidates[i] = kPyCandidates[entry->offset + ctx->cand_offset + i];
-    ctx->cand_count = vis;
-    ctx->cand_total = entry->count;
+/* Load IME_CANDS_VISIBLE candidates for the current option (py_opts[py_opt_idx])
+ * starting from page cand_page.  Fills ctx->candidates[], cand_count, has_more. */
+static void s_load_cands_page(ImeCtx_t *ctx)
+{
+    ctx->cand_count = 0;
+    ctx->has_more   = false;
+
+    if (ctx->py_opt_count == 0)
+        return;
+
+    const char *prefix = ctx->py_opts[ctx->py_opt_idx];
+    uint8_t     plen   = (uint8_t)__builtin_strlen(prefix);
+    uint16_t    si     = s_prefix_first(prefix, plen);
+
+    if (si >= kPyTableLen)
+        return;
+
+    /* Skip cand_page * IME_CANDS_VISIBLE candidates from the prefix range */
+    uint16_t skip = (uint16_t)(ctx->cand_page * (uint16_t)IME_CANDS_VISIBLE);
+    uint8_t  off  = 0;
+    while (skip > 0 && si < kPyTableLen) {
+        /* Check prefix still matches */
+        bool still = true;
+        for (uint8_t j = 0; j < plen; j++) {
+            if (kPyTable[si].syllable[j] != prefix[j]) { still = false; break; }
+        }
+        if (!still) break;
+
+        uint8_t avail = (uint8_t)(kPyTable[si].count - off);
+        if ((uint16_t)avail <= skip) {
+            skip -= (uint16_t)avail;
+            si++;
+            off = 0;
+        } else {
+            off = (uint8_t)(off + (uint8_t)skip);
+            skip = 0;
+        }
+    }
+    if (skip > 0)
+        return; /* page beyond end */
+
+    /* Collect up to IME_CANDS_VISIBLE candidates */
+    uint8_t  n     = 0;
+    uint16_t cur_si = si;
+    uint8_t  cur_off = off;
+    while (n < IME_CANDS_VISIBLE && cur_si < kPyTableLen) {
+        bool still = true;
+        for (uint8_t j = 0; j < plen; j++) {
+            if (kPyTable[cur_si].syllable[j] != prefix[j]) { still = false; break; }
+        }
+        if (!still) break;
+
+        while (cur_off < kPyTable[cur_si].count && n < IME_CANDS_VISIBLE)
+            ctx->candidates[n++] = kPyCandidates[kPyTable[cur_si].offset + cur_off++];
+
+        if (cur_off >= kPyTable[cur_si].count) { cur_si++; cur_off = 0; }
+    }
+    ctx->cand_count = n;
+
+    /* Check for more candidates */
+    if (n == IME_CANDS_VISIBLE && cur_si < kPyTableLen) {
+        bool still = true;
+        for (uint8_t j = 0; j < plen; j++) {
+            if (kPyTable[cur_si].syllable[j] != prefix[j]) { still = false; break; }
+        }
+        ctx->has_more = still;
+    }
+}
+
+/* Rebuild the option list from the current key sequence.
+ * Uses iterative mixed-radix enumeration of all letter combinations and
+ * filters to valid pinyin prefixes. */
+static void s_rebuild_opts(ImeCtx_t *ctx)
+{
+    ctx->py_opt_count = 0;
+    ctx->py_opt_idx   = 0;
+
+    if (ctx->py_key_count == 0)
+        return;
+
+    /* Bounds check: all keys must be KEY_2..KEY_9 */
+    for (uint8_t k = 0; k < ctx->py_key_count; k++) {
+        if (ctx->py_keys[k] < KEY_2 || ctx->py_keys[k] > KEY_9)
+            return;
+    }
+
+    /* letter_idx[i] = index into kT9Letters for key i */
+    uint8_t letter_idx[IME_KEY_SEQ_MAX] = {0};
+
+    while (ctx->py_opt_count < IME_OPTS_MAX) {
+        /* Build current combo */
+        char combo[IME_OPT_STR_MAX];
+        for (uint8_t i = 0; i < ctx->py_key_count; i++)
+            combo[i] = kT9Letters[ctx->py_keys[i] - KEY_2][letter_idx[i]];
+        combo[ctx->py_key_count] = '\0';
+
+        if (s_is_valid_prefix(combo, ctx->py_key_count)) {
+            memcpy(ctx->py_opts[ctx->py_opt_count], combo, ctx->py_key_count + 1u);
+            ctx->py_opt_count++;
+        }
+
+        /* Increment mixed-radix counter (rightmost digit first) */
+        int8_t pos = (int8_t)(ctx->py_key_count - 1);
+        while (pos >= 0) {
+            uint8_t ki = ctx->py_keys[pos] - KEY_2;
+            uint8_t nl = (uint8_t)__builtin_strlen(kT9Letters[ki]);
+            if (++letter_idx[pos] < nl)
+                break;
+            letter_idx[pos] = 0;
+            pos--;
+        }
+        if (pos < 0)
+            break; /* all combinations exhausted */
+    }
 }
 
 /* -------------------------------------------------------------------------
@@ -122,18 +201,19 @@ static void s_reload_candidates(ImeCtx_t *ctx)
 void IME_Reset(ImeCtx_t *ctx)
 {
     memset(ctx, 0, sizeof(*ctx));
-    ctx->mode = IME_MODE_LOWER;
+    ctx->mode = IME_MODE_EN;
 }
 
 ImeMode_t IME_CycleMode(ImeCtx_t *ctx)
 {
-    /* Clear any in-progress input when switching modes */
-    memset(ctx->preedit,      0, sizeof(ctx->preedit));
-    memset(ctx->letters_buf,  0, sizeof(ctx->letters_buf));
-    ctx->preedit_len   = 0;
-    ctx->letters_count = 0;
-    ctx->cand_count    = 0;
-    ctx->no_match      = false;
+    /* Clear all PY state when switching modes */
+    ctx->py_key_count = 0;
+    ctx->py_opt_count = 0;
+    ctx->py_opt_idx   = 0;
+    ctx->cand_focus   = false;
+    ctx->cand_page    = 0;
+    ctx->has_more     = false;
+    ctx->cand_count   = 0;
 
     ctx->mode = (ImeMode_t)((ctx->mode + 1u) % IME_MODE_COUNT);
     return ctx->mode;
@@ -143,116 +223,99 @@ ImeState_t IME_Feed(ImeCtx_t *ctx, KEY_Code_t key, bool held)
 {
     (void)held;
 
-    /* --- KEY_STAR: cycle input mode --- */
-    if (key == KEY_STAR) {
+    /* KEY_F (#): cycle input mode — always consumed */
+    if (key == KEY_F) {
         IME_CycleMode(ctx);
         return IME_IDLE;
     }
 
-    /* --- KEY_EXIT: discard pending preedit / letter selection --- */
-    if (key == KEY_EXIT) {
-        if (ctx->preedit_len > 0 || ctx->letters_count > 0 || ctx->cand_count > 0) {
-            memset(ctx->preedit,     0, sizeof(ctx->preedit));
-            ctx->preedit_len   = 0;
-            ctx->letters_count = 0;
-            ctx->cand_count    = 0;
-            ctx->no_match      = false;
-            return IME_IDLE;
-        }
-        return IME_IDLE; /* not consumed — caller handles exit */
-    }
-
-    /* ================================================================
-     * NON-PINYIN MODES: LOWER / UPPER / DIGIT
-     * ============================================================== */
-    if (ctx->mode != IME_MODE_PINYIN) {
-        /* In non-pinyin modes the IME just signals IDLE so the caller
-         * handles the key directly (cycle letters, digit, etc.). */
+    /* Only handle PY mode below */
+    if (ctx->mode != IME_MODE_PINYIN)
         return IME_IDLE;
-    }
 
     /* ================================================================
-     * PINYIN MODE
+     * CANDIDATE FOCUS (after MENU was pressed)
      * ============================================================== */
-
-    /* --- Currently showing Unicode candidates --- */
-    if (ctx->cand_count > 0) {
-        if (key >= KEY_1 && key <= KEY_6) {
+    if (ctx->cand_focus) {
+        /* KEY_1-5: signal "candidate N selected" to caller */
+        if (key >= KEY_1 && key <= KEY_5) {
             uint8_t idx = (uint8_t)(key - KEY_1);
-            if (idx < ctx->cand_count) {
-                /* Commit: caller collects the char via IME_PickCandidate */
-                return IME_CANDIDATES;  /* caller calls IME_PickCandidate() */
-            }
+            if (idx < ctx->cand_count)
+                return IME_CANDIDATES; /* caller calls IME_PickCandidate */
         }
-        if (key == KEY_UP || key == KEY_DOWN) {
-            int8_t dir = (key == KEY_DOWN) ? 1 : -1;
-            IME_ScrollCandidates(ctx, dir);
+        /* KEY_UP: next page */
+        if (key == KEY_UP) {
+            if (ctx->has_more) {
+                ctx->cand_page++;
+                s_load_cands_page(ctx);
+            }
             return IME_CANDIDATES;
         }
-        /* KEY_0 = cancel candidate selection, go back to preedit */
-        if (key == KEY_0) {
-            ctx->cand_count = 0;
-            return IME_PREEDIT;
-        }
-        /* Any 2-9 key: start a new letter selection for the next char */
-        if (key >= KEY_2 && key <= KEY_9) {
-            /* Commit nothing — let caller handle; for now go to LETTERS */
-            ctx->cand_count = 0;
-            memset(ctx->preedit, 0, sizeof(ctx->preedit));
-            ctx->preedit_len = 0;
-            s_set_letters(ctx, key);
-            return IME_LETTERS;
-        }
-        return IME_CANDIDATES; /* consume unknown key in candidate view */
-    }
-
-    /* --- Currently showing letter candidates (disambiguation) --- */
-    if (ctx->letters_count > 0) {
-        if (key >= KEY_1 && key <= KEY_4) {
-            uint8_t idx = (uint8_t)(key - KEY_1);
-            if (idx < ctx->letters_count) {
-                char letter = ctx->letters_buf[idx];
-                /* In UPPER mode, shift the letter */
-                if (ctx->mode == IME_MODE_UPPER && letter >= 'a' && letter <= 'z')
-                    letter = (char)(letter - 32);
-                return s_add_to_preedit(ctx, letter);
+        /* KEY_DOWN: prev page */
+        if (key == KEY_DOWN) {
+            if (ctx->cand_page > 0) {
+                ctx->cand_page--;
+                s_load_cands_page(ctx);
             }
+            return IME_CANDIDATES;
         }
-        /* Same or different T9 key: replace letter set */
-        if (key >= KEY_2 && key <= KEY_9) {
-            s_set_letters(ctx, key);
-            return IME_LETTERS;
+        /* KEY_EXIT or KEY_MENU: exit candidate focus → back to option row */
+        if (key == KEY_EXIT || key == KEY_MENU) {
+            ctx->cand_focus = false;
+            return (ctx->py_opt_count > 0) ? IME_OPTION : IME_IDLE;
         }
-        /* KEY_0 = cancel letter selection */
-        if (key == KEY_0) {
-            ctx->letters_count = 0;
-            return (ctx->preedit_len > 0) ? IME_PREEDIT : IME_IDLE;
-        }
-        return IME_LETTERS;
+        return IME_CANDIDATES; /* consume all other keys in cand focus */
     }
 
-    /* --- Preedit growing (no candidate window open) --- */
-    if (ctx->preedit_len > 0) {
-        /* T9 key: show letters */
-        if (key >= KEY_2 && key <= KEY_9) {
-            s_set_letters(ctx, key);
-            return IME_LETTERS;
-        }
-        /* KEY_0 = backspace preedit */
-        if (key == KEY_0) {
-            IME_Backspace(ctx);
-            return (ctx->preedit_len > 0) ? IME_PREEDIT : IME_IDLE;
-        }
-        return IME_PREEDIT;
-    }
+    /* ================================================================
+     * OPTION FOCUS (T9 keys build up key sequence)
+     * ============================================================== */
 
-    /* --- IDLE in PINYIN mode: wait for first key --- */
+    /* T9 key: extend key sequence, rebuild options */
     if (key >= KEY_2 && key <= KEY_9) {
-        s_set_letters(ctx, key);
-        return IME_LETTERS;
+        if (ctx->py_key_count < IME_KEY_SEQ_MAX) {
+            ctx->py_keys[ctx->py_key_count++] = key;
+            ctx->cand_page = 0;
+            s_rebuild_opts(ctx);
+            if (ctx->py_opt_count > 0)
+                s_load_cands_page(ctx);
+            else
+                ctx->cand_count = 0;
+        }
+        return (ctx->py_opt_count > 0) ? IME_OPTION : IME_IDLE;
     }
 
-    /* All other keys: pass through to caller */
+    /* KEY_UP: cycle to next option */
+    if (key == KEY_UP && ctx->py_opt_count > 1) {
+        ctx->py_opt_idx = (uint8_t)((ctx->py_opt_idx + 1u) % ctx->py_opt_count);
+        ctx->cand_page  = 0;
+        s_load_cands_page(ctx);
+        return IME_OPTION;
+    }
+
+    /* KEY_DOWN: cycle to previous option */
+    if (key == KEY_DOWN && ctx->py_opt_count > 1) {
+        ctx->py_opt_idx = (uint8_t)(
+            (ctx->py_opt_idx + ctx->py_opt_count - 1u) % ctx->py_opt_count);
+        ctx->cand_page = 0;
+        s_load_cands_page(ctx);
+        return IME_OPTION;
+    }
+
+    /* KEY_MENU: move focus to candidate row (only if candidates exist) */
+    if (key == KEY_MENU && ctx->cand_count > 0) {
+        ctx->cand_focus = true;
+        return IME_CANDIDATES;
+    }
+
+    /* KEY_UP/DOWN with only 1 option: still consume to avoid cursor moving */
+    if ((key == KEY_UP || key == KEY_DOWN) && ctx->py_opt_count == 1)
+        return IME_OPTION;
+
+    /* Stay in OPTION state for any unhandled key if we have active options */
+    if (ctx->py_opt_count > 0 || ctx->py_key_count > 0)
+        return IME_OPTION;
+
     return IME_IDLE;
 }
 
@@ -260,50 +323,37 @@ uint16_t IME_PickCandidate(ImeCtx_t *ctx, uint8_t idx)
 {
     if (idx >= ctx->cand_count) return 0u;
     uint16_t cp = ctx->candidates[idx];
-    /* Reset preedit and candidates */
-    memset(ctx->preedit,    0, sizeof(ctx->preedit));
-    ctx->preedit_len   = 0;
-    ctx->cand_count    = 0;
-    ctx->cand_offset   = 0;
-    ctx->cand_total    = 0;
-    ctx->no_match      = false;
+    /* Reset all PY state */
+    ctx->py_key_count = 0;
+    ctx->py_opt_count = 0;
+    ctx->py_opt_idx   = 0;
+    ctx->cand_focus   = false;
+    ctx->cand_page    = 0;
+    ctx->has_more     = false;
+    ctx->cand_count   = 0;
     return cp;
-}
-
-uint8_t IME_ScrollCandidates(ImeCtx_t *ctx, int8_t direction)
-{
-    if (ctx->cand_total == 0) return 0;
-    uint8_t new_off = (uint8_t)((int)ctx->cand_offset + direction * IME_CANDS_VISIBLE);
-    if ((int)new_off < 0)
-        new_off = 0;
-    if (new_off >= ctx->cand_total)
-        new_off = (uint8_t)(ctx->cand_total - 1u);
-    /* Snap to IME_CANDS_VISIBLE boundary */
-    new_off = (uint8_t)((new_off / IME_CANDS_VISIBLE) * IME_CANDS_VISIBLE);
-    ctx->cand_offset = new_off;
-    s_reload_candidates(ctx);
-    return new_off;
 }
 
 bool IME_Backspace(ImeCtx_t *ctx)
 {
-    if (ctx->cand_count > 0 || ctx->letters_count > 0) {
-        ctx->cand_count    = 0;
-        ctx->letters_count = 0;
-        if (ctx->preedit_len > 0)
-            return true;  /* still in preedit */
+    /* Exit candidate focus without clearing anything */
+    if (ctx->cand_focus) {
+        ctx->cand_focus = false;
         return true;
     }
-    if (ctx->preedit_len > 0) {
-        ctx->preedit[--ctx->preedit_len] = '\0';
-        ctx->no_match = false;
-        /* Re-check if the shorter preedit still has candidates */
-        if (ctx->preedit_len > 0) {
-            const PinyinEntry_t *entry = PY_BSearch(ctx->preedit);
-            if (entry) {
-                ctx->cand_offset = 0;
-                s_reload_candidates(ctx);
-            }
+    /* Remove last T9 key from sequence */
+    if (ctx->py_key_count > 0) {
+        ctx->py_key_count--;
+        ctx->cand_page = 0;
+        if (ctx->py_key_count > 0) {
+            s_rebuild_opts(ctx);
+            if (ctx->py_opt_count > 0)
+                s_load_cands_page(ctx);
+            else
+                ctx->cand_count = 0;
+        } else {
+            ctx->py_opt_count = 0;
+            ctx->cand_count   = 0;
         }
         return true;
     }
@@ -313,10 +363,9 @@ bool IME_Backspace(ImeCtx_t *ctx)
 const char *IME_ModeLabel(const ImeCtx_t *ctx)
 {
     switch (ctx->mode) {
-    case IME_MODE_LOWER:  return "abc";
-    case IME_MODE_UPPER:  return "ABC";
-    case IME_MODE_DIGIT:  return "123";
-    case IME_MODE_PINYIN: return "\xe6\x8b\xbc"; /* 拼 */
+    case IME_MODE_EN:     return "EN";
+    case IME_MODE_PINYIN: return "PY";
     default:              return "?";
     }
 }
+

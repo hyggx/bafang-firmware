@@ -46,6 +46,7 @@
         "ENABLE_SCAN_RANGES": true,
         "ENABLE_REGA": false,
         "ENABLE_EXTRA_UART_CMD": false,
+        "ENABLE_UART_SPI_WRITE": true,
         "ENABLE_FEAT_F4HWN": true,
         "ENABLE_FEAT_F4HWN_GAME": false,
         "ENABLE_FEAT_F4HWN_SCREENSHOT": false,

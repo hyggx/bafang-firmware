@@ -179,8 +179,8 @@ class _Handshake(_State):
         super().__init__(prog)
 
         bl_ver = prog.bl_ver
-        if len(bl_ver) > 4:
-            bl_ver = bl_ver[:4]
+        if len(bl_ver) > 16:
+            bl_ver = bl_ver[:16]
         self.bl_ver = bl_ver
 
         self.acc = 0
@@ -211,11 +211,18 @@ class _Handshake(_State):
         # bootloader time to erase the application flash sectors before
         # accepting MSG_PROG_FW writes.  Without this delay the bootloader
         # is still busy and returns err=1 on every page write.
-        time.sleep(0.5)
+        # BL 7.02.02 erases more sectors (102 KB image → 25 sectors @ max 400 ms each);
+        # 2 s covers the typical case (25 × ~50 ms = 1.25 s).
+        time.sleep(2.0)
         return _ProgFw(self.prog)
 
     def make_msg(self):
-        msg: mm.Msg = mm.Msg.make(mm.MSG_NOTIFY_BL_VER, 4)
+        # Allocate enough space for the full BL version string (null-padded to even length).
+        # BL compares the echoed string against its own; must send the exact bytes.
+        data_len = max(len(self.bl_ver), 4)  # at least 4 for compatibility with older BLs
+        if data_len % 2 != 0:
+            data_len += 1  # protocol requires even-length data
+        msg: mm.Msg = mm.Msg.make(mm.MSG_NOTIFY_BL_VER, data_len)
 
         with memoryview(msg.buf) as view:
             len1 = len(self.bl_ver)

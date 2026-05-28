@@ -1520,6 +1520,7 @@ void APP_TimeSlice10ms(void)
 
 
     SCANNER_TimeSlice10ms();
+    MENU_TimeSlice10ms();
 
 #ifdef ENABLE_AIRCOPY
     if (gScreenToDisplay == DISPLAY_AIRCOPY && gAircopyState == AIRCOPY_TRANSFER && gAirCopyIsSendMode == 1) {

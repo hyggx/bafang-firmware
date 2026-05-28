@@ -66,7 +66,9 @@ FONT_EEPROM_BASE = 0xD000
 # 0xFFFF - 0xD000 = 0x2FFF = 12,287 bytes (uint16_t address space limit).
 FONT_EEPROM_SIZE = 0x2FFF  # 12 KB − 1
 
-WRITE_CHUNK       = 128  # bytes per CMD_0535 write (SPI direct path)
+WRITE_CHUNK       = 64   # bytes per CMD_0535 write (SPI direct path)
+                         # Smaller chunks reduce per-call SPI programming time
+                         # and keep each WaitWIP well within the timeout window.
 EEPROM_WRITE_CHUNK = 8   # bytes per CMD_051D write; must be 8 (EEPROM_WriteBuffer granularity)
                          # 128-byte blocks cause 16 × sector-erase per block (~400 ms each =
                          # 6.4 s worst case), which exceeds a 5 s timeout when re-flashing over
@@ -74,9 +76,9 @@ EEPROM_WRITE_CHUNK = 8   # bytes per CMD_051D write; must be 8 (EEPROM_WriteBuff
                          # to one sector-erase (~400 ms max), safely within TIMEOUT_S.
 READ_CHUNK  = 128  # bytes per 0x051B / 0x0537 read  (max 128)
 BAUD_RATE   = 38400
-TIMEOUT_S   = 3.0  # seconds; one CMD_051D (8 bytes) triggers at most one 4 KB sector erase
-                   # (PY25Q16 spec: typ 50 ms, max 400 ms) — 3 s is a safe margin.
-                   # CMD_0535 (direct SPI, 128 bytes) also causes one erase → 3 s is fine.
+TIMEOUT_S   = 15.0 # seconds; must exceed WaitWIP worst case (1M × 10 µs = 10 s)
+                   # PY25Q16 sector erase max 800 ms + page-program max 3 ms × 1 page
+                   # = under 1 s normally; 15 s gives margin for slow flash units.
 
 
 # ---------------------------------------------------------------------------
@@ -149,10 +151,15 @@ def _parse_reply(raw: bytes, expected_id: int, encrypted: bool = True) -> bytes:
     return data[4 : 4 + inner_size]
 
 
+_verbose = False  # set to True by --verbose flag
+
+
 def _send_recv(
     ser: "serial.Serial", frame: bytes, expected_id: int, encrypted: bool = True
 ) -> bytes:
     """Send a frame and collect the reply, waiting up to TIMEOUT_S."""
+    if _verbose:
+        print(f"  TX ({len(frame)}B): {frame.hex()}", file=sys.stderr)
     ser.reset_input_buffer()
     ser.write(frame)
     ser.flush()
@@ -165,6 +172,8 @@ def _send_recv(
         if b"\xdc\xba" in raw:
             break
         time.sleep(0.005)
+    if _verbose:
+        print(f"  RX ({len(raw)}B): {raw.hex()}", file=sys.stderr)
     return _parse_reply(raw, expected_id, encrypted)
 
 
@@ -319,7 +328,12 @@ def main() -> None:
             "Requires firmware with ENABLE_UART_SPI_WRITE."
         ),
     )
-    ap.set_defaults(verify=True, direct_spi=False)
+    ap.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print raw TX/RX bytes for each command (hex) to stderr for diagnostics.",
+    )
+    ap.set_defaults(verify=True, direct_spi=False, verbose=False)
     args = ap.parse_args()
 
     # Load font file; pad to 8-byte boundary (EEPROM write granularity).
@@ -352,6 +366,10 @@ def main() -> None:
     print(write_desc)
     print(f"Write path : {path_name}")
     print(f"Port       : {args.port} @ {args.baud} baud")
+    print(f"Timeout    : {TIMEOUT_S:.1f} s per command")
+
+    global _verbose
+    _verbose = args.verbose
 
     with serial.Serial(args.port, args.baud, timeout=TIMEOUT_S) as ser:
         # --- Handshake ---------------------------------------------------
@@ -364,6 +382,22 @@ def main() -> None:
                 "         firmware compiled with ENABLE_CHINESE defined."
             )
         print(f"Firmware   : {version}")
+
+        # --- Pre-write CMD_0537 read-check (direct-SPI path only) --------
+        if use_direct_spi:
+            print("SPI check  : reading 8 bytes from 0x020000... ", end="", flush=True)
+            try:
+                probe = _read_block_spi(ser, SPI_FONT_BASE, 8)
+                print(f"OK ({probe.hex()})")
+            except Exception as exc:
+                print(f"\nERROR: CMD_0537 read check failed — {exc}", file=sys.stderr)
+                print(
+                    "  CMD_0535/0537 commands are not responding.\n"
+                    "  Ensure the firmware was built with ENABLE_UART_SPI_WRITE\n"
+                    "  and this firmware is currently flashed on the device.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         # --- Write -------------------------------------------------------
         total   = len(font_data)

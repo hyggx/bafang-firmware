@@ -47,7 +47,7 @@
 #include "misc.h"
 #include "settings.h"
 #include "version.h"
-#if defined(ENABLE_CHINESE) && defined(CJK_USE_SPI_FLASH)
+#ifdef CJK_USE_SPI_FLASH
     #include "l10n/cjk_font.h"
     /* EEPROM virtual address at which the CJK font begins (eeprom_compat.c). */
     #define CJK_EEPROM_FONT_BASE  0xD000u
@@ -530,7 +530,7 @@ static void CMD_051D(uint32_t Port, const uint8_t *pBuffer)
         if (bReloadEeprom)
             SETTINGS_InitEEPROM();
 
-#if defined(ENABLE_CHINESE) && defined(CJK_USE_SPI_FLASH)
+#ifdef CJK_USE_SPI_FLASH
         /*
          * CJK 字体热重载：字体刷写后立即失效缓存
          *
@@ -745,6 +745,14 @@ static void CMD_0535_SpiWrite(uint32_t Port, const uint8_t *pBuffer)
 {
     const CMD_0535_t *pCmd = (const CMD_0535_t *)pBuffer;
 
+    /* Direct-SPI font flashing can run longer than the 6 s serial-config
+     * window. Keep the session alive on every chunk so APP code does not
+     * resume normal TX/RX behavior before the host receives the ACK. */
+    gSerialConfigCountDown_500ms = 12; // 6 sec
+    #ifdef ENABLE_FMRADIO
+        gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+    #endif
+
     REPLY_0535_t Reply;
     Reply.Header.ID   = 0x0536;
     Reply.Header.Size = (uint16_t)(sizeof(Reply) - sizeof(Header_t));
@@ -755,6 +763,15 @@ static void CMD_0535_SpiWrite(uint32_t Port, const uint8_t *pBuffer)
     } else {
         PY25Q16_WriteBuffer(pCmd->Addr, pCmd->Data, pCmd->DataLen, false);
         Reply.Result = 0u;
+#ifdef CJK_USE_SPI_FLASH
+        /* Invalidate the CJK glyph cache so that the next CJK_GetGlyph()
+         * call re-reads the font header (glyph_count, bitmap_off) from
+         * the freshly-written SPI Flash data.  Without this, the stale
+         * s_cache.bitmap_off from before the write causes garbled glyphs. */
+        if (pCmd->Addr < (CJK_FONT_BASE + 0x10000u) &&
+            (pCmd->Addr + pCmd->DataLen) > CJK_FONT_BASE)
+            CJK_Invalidate();
+#endif
     }
     SendReply(Port, &Reply, sizeof(Reply));
 }
@@ -763,6 +780,13 @@ static void CMD_0535_SpiWrite(uint32_t Port, const uint8_t *pBuffer)
 static void CMD_0537_SpiRead(uint32_t Port, const uint8_t *pBuffer)
 {
     const CMD_0537_t *pCmd = (const CMD_0537_t *)pBuffer;
+
+    /* Verification reads are part of the same serial-config session as the
+     * font write; refresh the keepalive here as CMD_051B/051D already do. */
+    gSerialConfigCountDown_500ms = 12; // 6 sec
+    #ifdef ENABLE_FMRADIO
+        gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+    #endif
 
     REPLY_0537_t Reply;
     Reply.Header.ID = 0x0538;

@@ -1496,21 +1496,113 @@ void MENU_ShowCurrentSetting(void)
     }
 }
 
+/* ---- T9 multi-tap state (EN mode) ----
+ * KEY_1: symbols/digits   KEY_2-9: digits+upper+lower
+ * Same key → cycle; different key → commit + start new; 1.5 s idle → advance */
+#define T9_TIMEOUT_10MS  150u   /* 1.5 s in 10 ms ticks */
+static const char * const s_t9[10] = {
+    "0 ",                                           /* KEY_0: 0, space       */
+    "1 -.,!?@#$%^&*()_+=;:'\"<>[]{}|/\\~`",         /* KEY_1: 1 + symbols    */
+    "2ABCabc",                                       /* KEY_2                 */
+    "3DEFdef",                                       /* KEY_3                 */
+    "4GHIghi",                                       /* KEY_4                 */
+    "5JKLjkl",                                       /* KEY_5                 */
+    "6MNOmno",                                       /* KEY_6                 */
+    "7PQRSpqrs",                                     /* KEY_7                 */
+    "8TUVtuv",                                       /* KEY_8                 */
+    "9WXYZwxyz",                                     /* KEY_9                 */
+};
+static int8_t    t9_last_key  = -1;   /* active key index 0-9, -1 = idle    */
+static uint8_t   t9_char_idx  = 0;    /* position within t9_chars[last_key]  */
+static uint16_t  t9_timer     = 0;    /* countdown in 10 ms ticks; 0 = idle  */
+
+static void t9_reset(void)
+{
+    t9_last_key = -1;
+    t9_timer    = 0;
+}
+
+/* Kept for CJK UTF-8 backspace logic */
 static KEY_Code_t edit_last_key = 255;
 static uint8_t edit_char_index = 0;
 
-static const char* const char_map[10] = {
-    " 0",                           // KEY_0
-    ".,-()@/\\+=*#<>[]~1",          // KEY_1
-    "abc2",                         // KEY_2
-    "def3",                         // KEY_3
-    "ghi4",                         // KEY_4
-    "jkl5",                         // KEY_5
-    "mno6",                         // KEY_6
-    "pqrs7",                        // KEY_7
-    "tuv8",                         // KEY_8
-    "wxyz9"                         // KEY_9
-};
+/* Visual slot count: ASCII = 1 slot, CJK (3-byte UTF-8) = 2 slots */
+static uint8_t edit_visual_slots(void)
+{
+    uint8_t slots = 0;
+    int i = 0;
+    while (i < edit_index) {
+        uint8_t b = (uint8_t)edit[i];
+        if (b >= 0xE0u) { slots += 2u; i += 3; }
+        else if (b == ' ' || b == '\0') { break; }
+        else { slots += 1u; i++; }
+    }
+    return slots;
+}
+#define EDIT_MAX_SLOTS 10u
+
+static uint8_t edit_char_len_at(int index)
+{
+    if (index < 0 || index >= CHANNEL_NAME_MAX_BYTES)
+        return 0u;
+
+    const uint8_t b = (uint8_t)edit[index];
+    if (b == ' ' || b == '\0' || b == 0xFFu)
+        return 0u;
+    if (b >= 0xE0u && index + 2 < CHANNEL_NAME_MAX_BYTES)
+        return 3u;
+    return 1u;
+}
+
+static int edit_prev_char_index(int index)
+{
+    int prev = -1;
+    int pos = 0;
+    while (pos < index && pos < CHANNEL_NAME_MAX_BYTES) {
+        const uint8_t len = edit_char_len_at(pos);
+        if (len == 0u)
+            break;
+        prev = pos;
+        pos += len;
+    }
+    return prev;
+}
+
+static void edit_delete_bytes(int index, uint8_t count)
+{
+    if (index < 0 || index >= CHANNEL_NAME_MAX_BYTES || count == 0u)
+        return;
+    if (index + count > CHANNEL_NAME_MAX_BYTES)
+        count = (uint8_t)(CHANNEL_NAME_MAX_BYTES - index);
+
+    memmove(&edit[index], &edit[index + count], CHANNEL_NAME_MAX_BYTES - index - count);
+    memset(&edit[CHANNEL_NAME_MAX_BYTES - count], ' ', count);
+    edit[CHANNEL_NAME_MAX_BYTES] = '\0';
+}
+
+static bool edit_backspace_char(void)
+{
+    int index;
+    uint8_t len;
+
+    if (edit_last_key != (KEY_Code_t)255u) {
+        index = edit_index;
+    } else {
+        index = edit_prev_char_index(edit_index);
+        if (index < 0 && edit_index == 0)
+            index = 0;
+    }
+
+    len = edit_char_len_at(index);
+    if (len == 0u)
+        return false;
+
+    edit_delete_bytes(index, len);
+    edit_index = index;
+    edit_last_key = 255;
+    edit_char_index = 0;
+    return true;
+}
 
 static bool MENU_IsEditingName() {
     return !gCssBackgroundScan
@@ -1533,22 +1625,49 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
     if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME && edit_index >= 0)
     {   // currently editing the channel name
-        if (edit_index >= CHANNEL_NAME_MAX_BYTES)
-            return;
 
-        /* ---- PINYIN MODE ---- */
-        if (g_ime.mode == IME_MODE_PINYIN)
+        /* ---- EN MODE: haige-style T9 multi-tap ----
+         * Same key → cycle chars; different key → commit prev, start new.
+         * 1.5 s idle → TimeSlice10ms auto-commits and advances cursor.    */
+        if (g_ime.mode == IME_MODE_EN) {
+            if (edit_visual_slots() < EDIT_MAX_SLOTS && edit_index < CHANNEL_NAME_MAX_BYTES) {
+                const int8_t  ki    = (int8_t)(Key - KEY_0);
+                const char   *chars = s_t9[ki];
+                const uint8_t nch   = (uint8_t)__builtin_strlen(chars);
+                if (t9_last_key == ki && t9_timer > 0) {
+                    /* Same key — cycle */
+                    t9_char_idx = (uint8_t)((t9_char_idx + 1u) % nch);
+                } else {
+                    /* Different key — commit current and start new */
+                    if (t9_last_key >= 0 && t9_timer > 0
+                        && edit_visual_slots() < EDIT_MAX_SLOTS
+                        && edit_index < CHANNEL_NAME_MAX_BYTES - 1) {
+                        edit_index++;
+                    }
+                    t9_char_idx = 0;
+                    t9_last_key = ki;
+                }
+                t9_timer         = T9_TIMEOUT_10MS;
+                edit[edit_index] = chars[t9_char_idx];
+                edit_last_key    = 255;
+            }
+            gRequestDisplayScreen = DISPLAY_MENU;
+            return;
+        }
+
+        /* ---- PY MODE: delegate to IME state machine ---- */
         {
             ImeState_t st = IME_Feed(&g_ime, Key, bKeyHeld);
-
-            if (st == IME_CANDIDATES)
-            {   /* Key was a candidate selection (KEY_1..KEY_6) */
+            /* Only commit a character when in candidate-focus AND a valid
+             * candidate key was pressed (KEY_1..KEY_5). */
+            if (st == IME_CANDIDATES && g_ime.cand_focus) {
+                /* cand_focus is still true here because IME_Feed signals
+                 * IME_CANDIDATES without auto-picking — caller picks. */
                 uint8_t idx = (uint8_t)(Key - KEY_1);
-                if (idx < g_ime.cand_count)
-                {
+                if (Key >= KEY_1 && Key <= KEY_5 && idx < g_ime.cand_count) {
                     uint16_t cp = IME_PickCandidate(&g_ime, idx);
-                    if (cp != 0 && edit_index + 3 <= CHANNEL_NAME_MAX_BYTES)
-                    {   /* UTF-8 encode BMP codepoint (U+0800..U+FFFF) */
+                    if (cp != 0 && edit_index + 3 <= CHANNEL_NAME_MAX_BYTES
+                        && edit_visual_slots() + 2u <= EDIT_MAX_SLOTS) {
                         edit[edit_index]     = (char)(0xE0u | (cp >> 12));
                         edit[edit_index + 1] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
                         edit[edit_index + 2] = (char)(0x80u | (cp & 0x3Fu));
@@ -1557,47 +1676,10 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                     }
                 }
             }
-
             gRequestDisplayScreen = DISPLAY_MENU;
             return;
         }
-
-        /* ---- T9 MULTI-TAP (LOWER / UPPER / DIGIT) ---- */
-        uint8_t key_idx = Key - KEY_0;
-
-        if (bKeyHeld)
-        {
-            edit[edit_index] = '0' + key_idx;
-            edit_last_key = 255;
-            
-            gRequestDisplayScreen = DISPLAY_MENU;
-            return;
-        }
-
-        if (Key != edit_last_key)
-        {
-            edit_last_key = Key;
-            edit_char_index = 0;
-        }
-        else
-        {
-            edit_char_index++;
-            if (char_map[key_idx][edit_char_index] == '\0')
-            {
-                edit_char_index = 0;
-            }
-        }
-
-        char c = char_map[key_idx][edit_char_index];
-        if (edit_is_uppercase && c >= 'a' && c <= 'z')
-        {
-            c -= 32;
-        }
-        edit[edit_index] = c;
-
-        gRequestDisplayScreen = DISPLAY_MENU;
-        return;
-    }
+    }   /* end: if (MENU_MEM_NAME && edit_index >= 0) */
 
     if (bKeyHeld)
         return;
@@ -1780,37 +1862,31 @@ static void MENU_Key_EXIT(bool bKeyPressed, bool bKeyHeld)
             if (bKeyHeld)
                 return; // release after a long press, keep editing
 
-            /* In PINYIN mode: backspace into preedit/candidates first */
-            if (g_ime.mode == IME_MODE_PINYIN &&
-                (g_ime.preedit_len > 0 || g_ime.cand_count > 0 || g_ime.letters_count > 0))
-            {
-                IME_Backspace(&g_ime);
+            /* EN mode: if T9 char in progress, cancel it without backspacing */
+            if (g_ime.mode == IME_MODE_EN && t9_timer > 0) {
+                t9_reset();
+                edit[edit_index] = ' ';
                 gRequestDisplayScreen = DISPLAY_MENU;
                 return;
             }
 
-            if (edit_index == 0)
-                goto Skip;
-
-            if (edit_index > 0)
-            {   // step back one character while editing the channel name
-                /* Step back 3 bytes if previous char was UTF-8 CJK (0xE0-0xEF) */
-                if (edit_index >= 3 &&
-                    (uint8_t)edit[edit_index - 3] >= 0xE0u &&
-                    (uint8_t)edit[edit_index - 3] <= 0xEFu)
-                    edit_index -= 3;
-                else
-                    edit_index--;
-                edit_last_key = 255;
-                gAskForConfirmation = 0;
+            if (g_ime.mode == IME_MODE_PINYIN && IME_Backspace(&g_ime)) {
                 gRequestDisplayScreen = DISPLAY_MENU;
+                return;
             }
 
+            if (edit_backspace_char()) {
+                gAskForConfirmation = 0;
+                gRequestDisplayScreen = DISPLAY_MENU;
+                return;
+            }
+
+            gRequestDisplayScreen = DISPLAY_MENU;
             return;
         }
 
         if (!bKeyHeld)
-        {   // wait to see if the user wants a short exit or a long backspace
+        {   // wait for release; held EXIT cancels editing
             gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
             return;
         }
@@ -1965,11 +2041,31 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
                 edit[CHANNEL_NAME_MAX_BYTES] = '\0';
             }
 
-            edit_index = 0;  // 'edit_index' is going to be used as the cursor position
             edit_last_key = 255;
             edit_char_index = 0;
             edit_is_uppercase = false;
-            IME_Reset(&g_ime);  /* start in LOWER mode; KEY_STAR cycles modes */
+            IME_Reset(&g_ime);  /* start in EN mode; # cycles modes */
+
+            /* Position cursor after last real character (first trailing space).
+             * If all 10 visual slots are full, stay on the last character so
+             * the user can overwrite it rather than being stuck past the end. */
+            {
+                int  bi    = 0;   /* byte index */
+                uint8_t vs = 0;   /* visual slots consumed */
+                int  last_char_bi = 0;  /* byte start of last real char */
+                while (bi < CHANNEL_NAME_MAX_BYTES && vs < EDIT_MAX_SLOTS) {
+                    uint8_t b = (uint8_t)edit[bi];
+                    if (b == ' ' || b == '\0')
+                        break;           /* first trailing space → cursor here */
+                    last_char_bi = bi;
+                    if (b >= 0xE0u) { vs += 2u; bi += 3; }
+                    else             { vs += 1u; bi += 1; }
+                }
+                if (vs >= EDIT_MAX_SLOTS)
+                    edit_index = last_char_bi;  /* full: sit on last char */
+                else
+                    edit_index = bi;            /* not full: sit on first space */
+            }
 
             // make a copy so we can test for change when exiting the menu item
             memcpy(edit_original, edit, sizeof(edit_original));
@@ -1977,24 +2073,35 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
             return;
         }
         else
-        if (edit_index >= 0 && edit_index < CHANNEL_NAME_MAX_BYTES)
-        {   // editing the channel name characters
-            edit_last_key = 255;
-
-            if (bKeyHeld) {
-                edit_index = CHANNEL_NAME_MAX_BYTES;
-            }
-            else if (++edit_index < CHANNEL_NAME_MAX_BYTES) {
+        if (edit_index >= 0)
+        {
+            /* In PY mode with active options: MENU toggles option↔candidate focus */
+            if (g_ime.mode == IME_MODE_PINYIN &&
+                (g_ime.py_opt_count > 0 || g_ime.cand_focus)) {
+                IME_Feed(&g_ime, KEY_MENU, false);
+                gRequestDisplayScreen = DISPLAY_MENU;
                 return;
             }
 
-            // exit
+            // MENU during editing = save immediately
+            /* If mid T9 cycle, commit last typed char */
+            edit_last_key = 255;
+
+            /* Trim trailing spaces */
+            for (int i = CHANNEL_NAME_MAX_BYTES - 1; i >= 0; i--) {
+                if (edit[i] != ' ' && edit[i] != '\0' && edit[i] != (char)0xFF)
+                    break;
+                edit[i] = ' ';
+            }
+
+            SETTINGS_SaveChannelName(gSubMenuSelection, edit);
+
+            edit_index          = -1;
+            gIsInSubMenu        = false;
             gFlagAcceptSetting  = false;
             gAskForConfirmation = 0;
-            if (memcmp(edit_original, edit, sizeof(edit_original)) == 0) {
-                // no change - drop it
-                gIsInSubMenu = false;
-            }
+            gRequestDisplayScreen = DISPLAY_MENU;
+            return;
         }
     }
 
@@ -2069,18 +2176,8 @@ static void MENU_Key_STAR(const bool bKeyPressed, const bool bKeyHeld)
 
     gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
 
-    if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME && edit_index >= 0)
-    {   // currently editing the channel name
-
-        /* KEY_STAR cycles input mode: abc → ABC → 123 → 拼 → abc … */
-        ImeMode_t new_mode = IME_CycleMode(&g_ime);
-        /* Keep legacy edit_is_uppercase in sync for the ASCII display code */
-        edit_is_uppercase = (new_mode == IME_MODE_UPPER);
-        edit_last_key = 255;
-
-        gRequestDisplayScreen = DISPLAY_MENU;
-        return;
-    }
+    if (MENU_IsEditingName())
+        return;  /* ignore STAR during name editing; use # to cycle IME mode */
 
     if (bKeyHeld)
         return;
@@ -2129,9 +2226,10 @@ static void MENU_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 
     if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME && gIsInSubMenu && edit_index >= 0)
     {   // change the character
-        if (g_ime.mode == IME_MODE_PINYIN && g_ime.cand_count > 0)
-        {   /* Scroll through Unicode candidates */
-            IME_ScrollCandidates(&g_ime, Direction);
+        if (g_ime.mode == IME_MODE_PINYIN &&
+            (g_ime.py_opt_count > 0 || g_ime.cand_focus))
+        {   /* PY mode: UP cycles options or pages candidates */
+            IME_Feed(&g_ime, (Direction > 0) ? KEY_UP : KEY_DOWN, false);
             gRequestDisplayScreen = DISPLAY_MENU;
             return;
         }
@@ -2301,21 +2399,16 @@ void MENU_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
             MENU_Key_STAR(bKeyPressed, bKeyHeld);
             break;
         case KEY_F:
-            if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME && edit_index >= 0)
-            {   // currently editing the channel name
-                if (!bKeyPressed)
+            if (MENU_IsEditingName())
+            {   // currently editing the channel name: # key cycles IME mode
+                if (!bKeyPressed || bKeyHeld)
                     break;
 
                 gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
-
-                if (edit_index < 10)
                 {
-                    if (bKeyHeld)
-                        edit[edit_index] = '#';
-
-                    edit_is_uppercase = !edit_is_uppercase;
-                    edit_last_key = 255;
-
+                    t9_reset();
+                    IME_CycleMode(&g_ime);
+                    edit_last_key      = 255;
                     gRequestDisplayScreen = DISPLAY_MENU;
                 }
                 break;
@@ -2347,6 +2440,22 @@ void MENU_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
         else
         {
             gMenuCountdown = menu_timeout_500ms;
+        }
+    }
+}
+
+void MENU_TimeSlice10ms(void)
+{
+    if (t9_timer == 0 || edit_index < 0 ||
+        UI_MENU_GetCurrentMenuId() != MENU_MEM_NAME)
+        return;
+    if (--t9_timer == 0) {
+        t9_reset();
+        /* Auto-advance cursor to next slot after timeout */
+        if (edit_visual_slots() < EDIT_MAX_SLOTS
+            && edit_index < CHANNEL_NAME_MAX_BYTES - 1) {
+            edit_index++;
+            gUpdateDisplay = true;
         }
     }
 }
