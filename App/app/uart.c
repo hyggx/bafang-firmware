@@ -531,11 +531,35 @@ static void CMD_051D(uint32_t Port, const uint8_t *pBuffer)
             SETTINGS_InitEEPROM();
 
 #if defined(ENABLE_CHINESE) && defined(CJK_USE_SPI_FLASH)
-        /* If any write touched the CJK font region, invalidate the glyph cache
-         * so it is re-read from the updated SPI Flash on the next render call.
-         * Without this, the in-RAM s_cache.bitmap_off (loaded at boot from the
-         * old font header) stays stale after font re-flash until next reboot,
-         * causing all glyphs to render 8 bytes off → garbled characters. */
+        /*
+         * CJK 字体热重载：字体刷写后立即失效缓存
+         *
+         * 背景：
+         *   SPI Flash 0x020000 起存放 CJK 字体二进制，通过 EEPROM 虚拟地址
+         *   0xD000–0xFFFF 映射写入（eeprom_compat.c ADDR_MAPPINGS）。
+         *   字体文件头（16 字节）中包含 bitmap_off 字段，指向字形点阵的起始偏移。
+         *   字形点阵紧跟在索引表之后：bitmap_off = 0x10 + glyph_count × 4。
+         *
+         * 乱码根因：
+         *   固件启动时 CJK_Init() 从 SPI Flash 读取文件头，将 bitmap_off 缓存到
+         *   s_cache.bitmap_off（RAM）。之后所有字形读取都以此值为基址：
+         *     字形地址 = CJK_FONT_BASE + s_cache.bitmap_off + glyph_index × 24
+         *
+         *   如果字体在 radio 上电后通过 UART 重新刷写（glyph_count 改变，
+         *   例如 232→234 字形），新字体的 bitmap_off 与旧值不同
+         *   （0x3B0 → 0x3B8，差 8 字节）。
+         *   但 RAM 中的 s_cache.bitmap_off 仍是旧值，不重启就不会更新。
+         *   结果：每个字形的实际读取位置偏移 8 字节，点阵数据全错 → 文字乱码。
+         *
+         * 修复（第一部分，本处）：
+         *   检测到本次 CMD_051D 写入地址落在 CJK 字体 EEPROM 窗口
+         *   (Offset ≥ CJK_EEPROM_FONT_BASE = 0xD000) 时，调用 CJK_Invalidate()
+         *   将 s_cache.header_valid 置 false，清空 RAM 缓存。
+         *
+         * 修复（第二部分，见 cjk_font.c CJK_GetGlyph）：
+         *   CJK_GetGlyph() 发现 !header_valid 时自动调用 CJK_Init() 重读文件头，
+         *   使 s_cache.bitmap_off 立即更新为新字体的正确值，无需手动重启。
+         */
         {
             unsigned int j;
             for (j = 0; j < (pCmd->Size / 8u); j++) {

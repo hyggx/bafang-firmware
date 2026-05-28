@@ -127,8 +127,15 @@ bool CJK_FontAvailable(void)
 bool CJK_GetGlyph(uint16_t cp, uint8_t out_bitmap[CJK_GLYPH_BYTES])
 {
     if (!s_cache.header_valid) {
-        /* Cache was invalidated (e.g. font re-flashed via UART). Re-read the
-         * font header from SPI Flash so the correct bitmap_off is used.     */
+        /*
+         * 缓存已失效（通常由 CMD_051D 写入字体区域后 CJK_Invalidate() 触发）。
+         * 重新从 SPI Flash 读取字体文件头，更新 s_cache.bitmap_off。
+         *
+         * 说明：字体文件头中的 bitmap_off = 0x10 + glyph_count × 4。
+         * 字形数量变化（如 232→234）会使 bitmap_off 改变 8 字节。
+         * 若继续使用旧的 bitmap_off 计算字形地址，读取到的点阵数据错误，
+         * 渲染结果为乱码。此处重初始化可确保字体刷写后无需重启即显示正常。
+         */
         CJK_Init();
         if (!s_cache.header_valid)
             return false;
