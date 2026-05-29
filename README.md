@@ -234,7 +234,13 @@ cmake --build --preset Default -j
 
 > 本固件内置中文菜单与拼音输入法（IME），需要额外将字体文件写入 SPI Flash 才能显示汉字。
 
-### 环境要求
+### 方式一：网页工具（推荐，无需安装）
+
+打开 [tools/webflash/index.html](tools/webflash/index.html)（或托管于 GitHub Pages 的版本），用 **Chrome / Edge** 直接在浏览器中完成刷写，无需安装任何软件。
+
+### 方式二：Python 脚本
+
+#### 环境要求
 
 ```bash
 pip install pyserial

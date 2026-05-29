@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>八方固件 · CJK 字体刷写</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;max-width:660px;margin:2rem auto;padding:0 1.25rem}
+h1{color:#58a6ff;font-size:1.4rem;margin-bottom:.2rem}
+.sub{color:#8b949e;font-size:.85rem;margin-bottom:1.25rem}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1.1rem 1.25rem;margin:.75rem 0}
+.card-title{font-size:.78rem;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.7rem}
+label{font-size:.85rem;color:#8b949e;display:block;margin-bottom:.35rem}
+input[type=file]{width:100%;padding:.45rem .6rem;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:.85rem;cursor:pointer}
+input[type=file]:hover{border-color:#58a6ff}
+.file-info{font-size:.78rem;color:#8b949e;margin-top:.4rem;min-height:1em}
+.file-info.spi{color:#d2a679}
+.file-info.eeprom{color:#79c0ff}
+button{padding:.45rem 1.1rem;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:600;transition:opacity .15s,background .15s}
+button:disabled{opacity:.35;cursor:not-allowed}
+#btn-connect{background:#238636;color:#fff}
+#btn-connect.is-connected{background:#b62324;color:#fff}
+#btn-flash{background:#1f6feb;color:#fff}
+.row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#30363d;flex-shrink:0;display:inline-block;margin-right:.35rem}
+.dot.ok{background:#3fb950}
+.dot.err{background:#f85149}
+#fw-info{font-size:.78rem;color:#8b949e;margin-top:.5rem}
+.progress-wrap{background:#0d1117;border:1px solid #21262d;border-radius:4px;height:8px;margin:.65rem 0 .35rem;overflow:hidden}
+.progress-bar{height:100%;background:#1f6feb;width:0%;transition:width .12s linear}
+.progress-bar.ok{background:#3fb950}
+.progress-label{font-size:.78rem;color:#8b949e}
+.opt-row{display:flex;align-items:center;gap:.5rem;margin-top:.6rem}
+.opt-row input[type=checkbox]{accent-color:#1f6feb;width:14px;height:14px}
+.opt-row label{margin:0;color:#8b949e;font-size:.82rem;cursor:pointer}
+#log{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:.65rem .75rem;font-family:'SF Mono','Fira Code',monospace;font-size:.78rem;height:190px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.l-ok{color:#3fb950}
+.l-err{color:#f85149}
+.l-info{color:#8b949e}
+.l-head{color:#58a6ff;font-weight:bold}
+.l-warn{color:#d2a679}
+.unsupported{background:#2d1a1a;border:1px solid #f85149;border-radius:8px;padding:1rem 1.25rem;margin:.75rem 0;display:none}
+</style>
+</head>
+<body>
+<h1>八方固件 · CJK 字体刷写</h1>
+<p class="sub">适用于泉盛 UV-K5/K6 V3 · UV-K1 · UV-K1(8)　&nbsp;需要 Chrome 或 Edge 89+</p>
+
+<div class="unsupported" id="no-serial">
+  ⚠️ 当前浏览器不支持 WebSerial API。请使用 <strong>Chrome</strong> 或 <strong>Edge</strong> 89 以上版本，并通过 <strong>HTTPS</strong> 或 <strong>localhost</strong> 打开此页面。
+</div>
+
+<div class="card">
+  <div class="card-title">第一步 · 选择字体文件</div>
+  <input type="file" id="font-file" accept=".bin">
+  <div class="file-info" id="file-info">请选择 .bin 字体文件</div>
+</div>
+
+<div class="card">
+  <div class="card-title">第二步 · 连接串口</div>
+  <div class="row">
+    <button id="btn-connect">连接串口</button>
+    <span id="connect-status"><span class="dot"></span>未连接</span>
+  </div>
+  <div id="fw-info"></div>
+</div>
+
+<div class="card">
+  <div class="card-title">第三步 · 刷写字体</div>
+  <button id="btn-flash" disabled>开始刷写</button>
+  <div class="opt-row">
+    <input type="checkbox" id="chk-verify" checked>
+    <label for="chk-verify">写入后校验（推荐）</label>
+  </div>
+  <div class="progress-wrap" id="progress-wrap" style="display:none">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+  <div class="progress-label" id="progress-label"></div>
+</div>
+
+<div class="card">
+  <div class="card-title">日志</div>
+  <div id="log"></div>
+</div>
+
+<script>
+'use strict';
+
+// ─── Protocol constants (mirrors flash_font.py) ───────────────────────────
+const OBFUSCATION = new Uint8Array([
+  0x16,0x6C,0x14,0xE6, 0x2E,0x91,0x0D,0x40,
+  0x21,0x35,0xD5,0x40, 0x13,0x03,0xE9,0x80,
+]);
+const FONT_EEPROM_BASE   = 0xD000;
+const FONT_EEPROM_SIZE   = 0x2FFF;  // 12 KB virtual window limit
+const SPI_FONT_BASE      = 0x020000;
+const WRITE_CHUNK        = 64;      // bytes per CMD_0535 write
+const EEPROM_WRITE_CHUNK = 8;       // bytes per CMD_051D write
+const READ_CHUNK         = 128;     // bytes per read command
+const BAUD_RATE          = 38400;
+const TIMEOUT_MS         = 15000;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function u16le(v) {
+  const b = new Uint8Array(2);
+  new DataView(b.buffer).setUint16(0, v, true);
+  return b;
+}
+function u32le(v) {
+  const b = new Uint8Array(4);
+  new DataView(b.buffer).setUint32(0, v >>> 0, true);
+  return b;
+}
+function cat(...arrays) {
+  const total = arrays.reduce((s, a) => s + a.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+
+// ─── CRC-16/CCITT (poly 0x1021, init 0, no reflection) ───────────────────
+function crc16(data) {
+  let crc = 0;
+  for (const b of data) {
+    crc ^= b << 8;
+    for (let i = 0; i < 8; i++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xFFFF;
+    }
+  }
+  return crc;
+}
+
+// ─── Frame builder ────────────────────────────────────────────────────────
+// Frame: 0xABCD + outerSize(u16le) + XOR(ID+InnerSize+Payload+CRC) + 0xDCBA
+function buildFrame(cmdId, innerData) {
+  const innerSize = innerData.length;
+  const outerSize = innerSize + 4;          // ID(2) + InnerSize(2) + Payload
+
+  const payload = new Uint8Array(outerSize);
+  const pv = new DataView(payload.buffer);
+  pv.setUint16(0, cmdId,     true);
+  pv.setUint16(2, innerSize, true);
+  payload.set(innerData, 4);
+
+  const crcVal = crc16(payload);
+  const full = new Uint8Array(outerSize + 2);
+  full.set(payload);
+  new DataView(full.buffer).setUint16(outerSize, crcVal, true);
+  for (let i = 0; i < full.length; i++) full[i] ^= OBFUSCATION[i % 16];
+
+  const frame = new Uint8Array(2 + 2 + full.length + 2);
+  frame[0] = 0xAB; frame[1] = 0xCD;
+  new DataView(frame.buffer).setUint16(2, outerSize, true);
+  frame.set(full, 4);
+  frame[4 + full.length]     = 0xDC;
+  frame[4 + full.length + 1] = 0xBA;
+  return frame;
+}
+
+// ─── Reply parser ─────────────────────────────────────────────────────────
+// Reply: 0xABCD + size(u16le) + XOR(replyId+innerSize+innerData) + 0xDCBA
+function parseReply(raw, expectedId) {
+  let start = -1;
+  for (let i = 0; i < raw.length - 1; i++) {
+    if (raw[i] === 0xAB && raw[i+1] === 0xCD) { start = i; break; }
+  }
+  if (start < 0) throw new Error('No 0xABCD marker in reply');
+  const size = raw[start+2] | (raw[start+3] << 8);
+  const raw2 = raw.slice(start + 4, start + 4 + size);
+  if (raw2.length < size) throw new Error('Reply truncated');
+
+  const dec = new Uint8Array(size);
+  for (let i = 0; i < size; i++) dec[i] = raw2[i] ^ OBFUSCATION[i % 16];
+
+  const replyId   = dec[0] | (dec[1] << 8);
+  const innerSize = dec[2] | (dec[3] << 8);
+  if (replyId !== expectedId)
+    throw new Error(`Reply ID 0x${replyId.toString(16).padStart(4,'0')} ≠ expected 0x${expectedId.toString(16).padStart(4,'0')}`);
+  return dec.slice(4, 4 + innerSize);
+}
+
+// ─── Serial session (background read loop + frame waiter) ─────────────────
+class SerialSession {
+  constructor(port) {
+    this.port   = port;
+    this.reader = null;
+    this.writer = null;
+    this._buf   = [];
+    this._waiter = null;   // { resolve, reject }
+    this._alive  = false;
+  }
+
+  async open() {
+    await this.port.open({ baudRate: BAUD_RATE });
+    this.writer = this.port.writable.getWriter();
+    this.reader = this.port.readable.getReader();
+    this._alive = true;
+    this._readLoop();
+  }
+
+  async _readLoop() {
+    try {
+      while (this._alive) {
+        const { value, done } = await this.reader.read();
+        if (done) break;
+        if (value) {
+          for (const b of value) this._buf.push(b);
+          this._tryFrame();
+        }
+      }
+    } catch (_) { /* port closed */ }
+  }
+
+  _tryFrame() {
+    const buf = this._buf;
+    if (buf.length < 6) return;
+
+    // Locate 0xABCD
+    let start = -1;
+    for (let i = 0; i <= buf.length - 2; i++) {
+      if (buf[i] === 0xAB && buf[i+1] === 0xCD) { start = i; break; }
+    }
+    if (start < 0 || start + 4 > buf.length) return;
+
+    const size        = buf[start+2] | (buf[start+3] << 8);
+    const totalNeeded = 2 + 2 + size + 2;  // 0xABCD + sizeField + data + 0xDCBA
+    if (buf.length < start + totalNeeded) return;
+
+    const endPos = start + totalNeeded - 2;
+    if (buf[endPos] !== 0xDC || buf[endPos+1] !== 0xBA) return;
+
+    const frame  = new Uint8Array(buf.splice(start, totalNeeded));
+    const waiter = this._waiter;
+    this._waiter = null;
+    if (waiter) waiter.resolve(frame);
+  }
+
+  // Send frame, wait for reply with expectedId (or timeout)
+  sendRecv(frame, expectedId) {
+    this._buf = [];  // discard stale bytes
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._waiter = null;
+        reject(new Error(`Timeout waiting for reply 0x${expectedId.toString(16).padStart(4,'0')}`));
+      }, TIMEOUT_MS);
+
+      this._waiter = {
+        resolve: raw => {
+          clearTimeout(timer);
+          try   { resolve(parseReply(raw, expectedId)); }
+          catch (e) { reject(e); }
+        },
+        reject: e => { clearTimeout(timer); reject(e); },
+      };
+
+      this.writer.write(frame).catch(e => {
+        clearTimeout(timer);
+        this._waiter = null;
+        reject(e);
+      });
+    });
+  }
+
+  async close() {
+    this._alive = false;
+    try { await this.reader.cancel(); } catch(_) {}
+    try { this.reader.releaseLock(); }  catch(_) {}
+    try { this.writer.releaseLock(); }  catch(_) {}
+    try { await this.port.close(); }    catch(_) {}
+  }
+}
+
+// ─── Protocol commands ────────────────────────────────────────────────────
+
+// CMD_0514 → 0x0515  session init / handshake
+async function cmdHandshake(s) {
+  const ts    = (Date.now() / 1000) >>> 0;
+  const rep   = await s.sendRecv(buildFrame(0x0514, u32le(ts)), 0x0515);
+  const ver   = new TextDecoder().decode(rep.slice(0, 16)).replace(/\0/g,'').trim();
+  return { version: ver, ts };
+}
+
+// CMD_051D → 0x051E  EEPROM write (8-byte blocks, virtual addr)
+async function cmdWriteEeprom(s, addr, chunk, ts) {
+  const inner = cat(u16le(addr), new Uint8Array([chunk.length, 0]), u32le(ts), chunk);
+  const rep   = await s.sendRecv(buildFrame(0x051D, inner), 0x051E);
+  const ack   = rep[0] | (rep[1] << 8);
+  if (ack !== addr) throw new Error(`EEPROM ack 0x${ack.toString(16)} ≠ sent 0x${addr.toString(16)}`);
+}
+
+// CMD_051B → 0x051C  EEPROM read
+async function cmdReadEeprom(s, addr, size, ts) {
+  const inner = cat(u16le(addr), new Uint8Array([size, 0]), u32le(ts));
+  const rep   = await s.sendRecv(buildFrame(0x051B, inner), 0x051C);
+  return rep.slice(4, 4 + size);  // skip Offset(2)+Size(1)+Pad(1)
+}
+
+// CMD_0535 → 0x0536  direct SPI write (requires ENABLE_UART_SPI_WRITE)
+async function cmdWriteSpi(s, addr, chunk) {
+  const inner = cat(u32le(addr), u16le(chunk.length), new Uint8Array(2), chunk);
+  const rep   = await s.sendRecv(buildFrame(0x0535, inner), 0x0536);
+  const result = rep.length > 0 ? rep[0] : 0xFF;
+  if (result !== 0) throw new Error(`CMD_0535 error ${result} @ 0x${addr.toString(16).toUpperCase()}`);
+}
+
+// CMD_0537 → 0x0538  direct SPI read (requires ENABLE_UART_SPI_WRITE)
+async function cmdReadSpi(s, addr, size) {
+  const inner = cat(u32le(addr), new Uint8Array([size, 0, 0, 0]));
+  const rep   = await s.sendRecv(buildFrame(0x0537, inner), 0x0538);
+  if (rep.length < 8)
+    throw new Error(`CMD_0537 reply too short (${rep.length} B) @ 0x${addr.toString(16).toUpperCase()}`);
+  const echoLen = rep[4];
+  const result  = rep[5];
+  if (result !== 0) throw new Error(`CMD_0537 error ${result} @ 0x${addr.toString(16).toUpperCase()}`);
+  return rep.slice(8, 8 + echoLen);
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────
+let session  = null;
+let fontData = null;
+
+const elFile      = document.getElementById('font-file');
+const elFileInfo  = document.getElementById('file-info');
+const elConnect   = document.getElementById('btn-connect');
+const elFlash     = document.getElementById('btn-flash');
+const elStatus    = document.getElementById('connect-status');
+const elFwInfo    = document.getElementById('fw-info');
+const elPWrap     = document.getElementById('progress-wrap');
+const elPBar      = document.getElementById('progress-bar');
+const elPLabel    = document.getElementById('progress-label');
+const elLog       = document.getElementById('log');
+const elVerify    = document.getElementById('chk-verify');
+
+function log(msg, cls = '') {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  elLog.appendChild(d);
+  elLog.scrollTop = elLog.scrollHeight;
+}
+
+function setProgress(pct, phase) {
+  elPBar.style.width = pct + '%';
+  elPBar.className = 'progress-bar' + (phase === 'verify' ? ' ok' : '');
+}
+
+function setConnected(ok, label = '') {
+  if (ok) {
+    elStatus.innerHTML = `<span class="dot ok"></span>${label}`;
+    elConnect.textContent = '断开串口';
+    elConnect.className = 'is-connected';
+  } else {
+    elStatus.innerHTML = `<span class="dot"></span>未连接`;
+    elConnect.textContent = '连接串口';
+    elConnect.className = '';
+    elFwInfo.textContent = '';
+  }
+  elFlash.disabled = !(ok && fontData);
+}
+
+// ─── File picker ──────────────────────────────────────────────────────────
+elFile.addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) { fontData = null; elFileInfo.textContent = '请选择 .bin 字体文件'; elFileInfo.className = 'file-info'; elFlash.disabled = true; return; }
+
+  const raw = new Uint8Array(await f.arrayBuffer());
+  // Pad to 8-byte boundary (required by EEPROM write granularity)
+  const rem = raw.length % 8;
+  if (rem) {
+    fontData = new Uint8Array(raw.length + (8 - rem));
+    fontData.set(raw);
+    fontData.fill(0xFF, raw.length);
+  } else {
+    fontData = raw;
+  }
+
+  const useSpi = fontData.length > FONT_EEPROM_SIZE;
+  if (useSpi) {
+    elFileInfo.className = 'file-info spi';
+    elFileInfo.textContent = `${f.name}  ·  ${fontData.length.toLocaleString()} 字节  ·  SPI 直写路径（需 ENABLE_UART_SPI_WRITE 固件）`;
+  } else {
+    elFileInfo.className = 'file-info eeprom';
+    elFileInfo.textContent = `${f.name}  ·  ${fontData.length.toLocaleString()} 字节  ·  EEPROM 虚地址路径`;
+  }
+  elFlash.disabled = !session;
+});
+
+// ─── Connect / disconnect ─────────────────────────────────────────────────
+elConnect.addEventListener('click', async () => {
+  if (session) {
+    await session.close();
+    session = null;
+    setConnected(false);
+    log('串口已断开。', 'l-info');
+    return;
+  }
+
+  if (!('serial' in navigator)) {
+    document.getElementById('no-serial').style.display = 'block';
+    return;
+  }
+
+  let port;
+  try { port = await navigator.serial.requestPort(); }
+  catch (e) { if (e.name !== 'AbortError') log(`选择串口失败: ${e.message}`, 'l-err'); return; }
+
+  try {
+    session = new SerialSession(port);
+    await session.open();
+    log('串口已打开，握手中…', 'l-info');
+    const { version } = await cmdHandshake(session);
+    setConnected(true, '已连接');
+    elFwInfo.textContent = `固件版本：${version}`;
+    log(`握手成功  固件版本: ${version}`, 'l-ok');
+  } catch (e) {
+    log(`连接失败: ${e.message}`, 'l-err');
+    try { await session.close(); } catch(_) {}
+    session = null;
+    setConnected(false);
+  }
+});
+
+// ─── Flash ────────────────────────────────────────────────────────────────
+elFlash.addEventListener('click', async () => {
+  if (!session || !fontData) return;
+
+  elFlash.disabled   = true;
+  elConnect.disabled = true;
+  elPWrap.style.display = 'block';
+  setProgress(0, 'write');
+  elPLabel.textContent = '';
+
+  const useSpi  = fontData.length > FONT_EEPROM_SIZE;
+  const doVerify = elVerify.checked;
+  const total   = fontData.length;
+
+  log('', '');
+  log('── 开始刷写 ──────────────────────────', 'l-head');
+  log(`字体大小 : ${total.toLocaleString()} 字节 (${(total/1024).toFixed(1)} KB)`, 'l-info');
+  log(`写入路径 : ${useSpi ? 'SPI 直写 CMD_0535/0537  (ENABLE_UART_SPI_WRITE)' : 'EEPROM 虚地址 CMD_051D/051B'}`, 'l-info');
+
+  try {
+    const { version, ts } = await cmdHandshake(session);
+    log(`固件版本 : ${version}`, 'l-info');
+
+    // Pre-flight SPI check
+    if (useSpi) {
+      log('SPI 预检 (CMD_0537 @ 0x020000)…', 'l-info');
+      const probe = await cmdReadSpi(session, SPI_FONT_BASE, 8);
+      log(`SPI 预检 OK: ${Array.from(probe).map(b => b.toString(16).padStart(2,'0')).join(' ')}`, 'l-ok');
+    }
+
+    // ── Write ────────────────────────────────────────────────────────────
+    log('写入中…', 'l-info');
+    const step = useSpi ? WRITE_CHUNK : EEPROM_WRITE_CHUNK;
+    for (let off = 0; off < total; off += step) {
+      const chunk = fontData.slice(off, Math.min(off + step, total));
+      if (useSpi)
+        await cmdWriteSpi(session, SPI_FONT_BASE + off, chunk);
+      else
+        await cmdWriteEeprom(session, FONT_EEPROM_BASE + off, chunk, ts);
+
+      const written = off + chunk.length;
+      setProgress(Math.round(written / total * (doVerify ? 50 : 100)), 'write');
+      elPLabel.textContent = `写入: ${written.toLocaleString()} / ${total.toLocaleString()} 字节`;
+    }
+    log(`写入完成  ${total.toLocaleString()} 字节`, 'l-ok');
+
+    // ── Verify ───────────────────────────────────────────────────────────
+    if (doVerify) {
+      log('校验中…', 'l-info');
+      let errors = 0;
+      for (let off = 0; off < total; off += READ_CHUNK) {
+        const size = Math.min(READ_CHUNK, total - off);
+        const rb = useSpi
+          ? await cmdReadSpi(session, SPI_FONT_BASE + off, size)
+          : await cmdReadEeprom(session, FONT_EEPROM_BASE + off, size, ts);
+
+        const expected = fontData.slice(off, off + size);
+        let match = rb.length === expected.length;
+        if (match) for (let i = 0; i < size; i++) { if (rb[i] !== expected[i]) { match = false; break; } }
+
+        if (!match) {
+          const addr = useSpi
+            ? `SPI 0x${(SPI_FONT_BASE + off).toString(16).toUpperCase()}`
+            : `EEPROM 0x${(FONT_EEPROM_BASE + off).toString(16).toUpperCase()}`;
+          log(`校验不一致: ${addr}`, 'l-err');
+          errors++;
+          if (errors >= 3) { log('校验失败次数过多，中止。', 'l-err'); break; }
+        }
+
+        const verified = off + size;
+        setProgress(50 + Math.round(verified / total * 50), 'verify');
+        elPLabel.textContent = `校验: ${verified.toLocaleString()} / ${total.toLocaleString()} 字节`;
+      }
+
+      if (errors === 0) {
+        setProgress(100, 'verify');
+        elPLabel.textContent = '完成！';
+        log(`校验通过  ${total.toLocaleString()} 字节`, 'l-ok');
+        log('✓  CJK 字体已成功写入 SPI Flash。重启对讲机即可生效。', 'l-ok');
+      } else {
+        elPBar.style.background = '#f85149';
+        elPLabel.textContent = `校验失败 (${errors} 处不一致)`;
+        log(`校验失败，${errors} 处不一致。请重试刷写。`, 'l-err');
+      }
+    } else {
+      setProgress(100, 'write');
+      elPLabel.textContent = '写入完成（已跳过校验）';
+      log('✓  写入完成，已跳过校验。', 'l-warn');
+    }
+  } catch (e) {
+    log(`错误: ${e.message}`, 'l-err');
+    elPLabel.textContent = '出错，请查看日志。';
+  } finally {
+    elFlash.disabled   = false;
+    elConnect.disabled = false;
+  }
+});
+
+// ─── Check WebSerial support on load ─────────────────────────────────────
+if (!('serial' in navigator)) {
+  document.getElementById('no-serial').style.display = 'block';
+  elConnect.disabled = true;
+}
+</script>
+</body>
+</html>
