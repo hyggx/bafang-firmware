@@ -104,8 +104,7 @@
 
 ## 🚀 刷机指南
 
-> 刷机不需要安装任何软件，用浏览器即可完成。全程使用同一个在线工具：
-> **[https://armel.github.io/uvtools2/](https://armel.github.io/uvtools2/)**（需 Chrome 或 Edge）
+> 刷机不需要安装任何软件，用浏览器即可完成（需 Chrome 或 Edge）。
 
 ### 第一步：备份校准数据（强烈建议）
 
