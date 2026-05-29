@@ -612,17 +612,17 @@ static void DrawLevelBar(uint8_t xpos, uint8_t line, uint8_t level, uint8_t bars
         else
         {
             const char hollowBar[] = {
-                0b00111110,
-                0b00100010,
-                0b00100010,
-                0b00111110
+                0b00011100,
+                0b00010100,
+                0b00010100,
+                0b00011100
             };
 
             const char simpleBar[] = {
-                0b00111110,
-                0b00111110,
-                0b00111110,
-                0b00111110
+                0b00011100,
+                0b00011100,
+                0b00011100,
+                0b00011100
             };
 
             if(i < bars - 4) {
@@ -698,8 +698,7 @@ void UI_DisplayAudioBar(void)
 #endif
         static uint8_t barsOld = 0;
         const uint8_t thresold = 18; // arbitrary thresold
-        //const uint8_t barsList[] = {0, 0, 0, 1, 2, 3, 4, 5, 6, 8, 10, 13, 16, 20, 25, 25};
-        const uint8_t barsList[] = {0, 0, 0, 1, 2, 3, 5, 7, 9, 12, 15, 18, 21, 25, 25, 25};
+        const uint8_t barsList[] = {0, 0, 0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 16, 16};
         uint8_t logLevel;
         uint8_t bars;
 
@@ -713,7 +712,7 @@ void UI_DisplayAudioBar(void)
         uint8_t *p_line = gFrameBuffer[line];
         memset(p_line, 0, LCD_WIDTH);
 
-        DrawLevelBar(2, line, barsOld, 25);
+        DrawLevelBar(2, line, barsOld, 16);
 
         if (gCurrentFunction == FUNCTION_TRANSMIT)
             ST7565_BlitFullScreen();
