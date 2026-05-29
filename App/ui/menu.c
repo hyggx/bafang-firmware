@@ -886,14 +886,14 @@ static void UI_DisplayNameEdit(void)
         }
 
         /* Line 5: candidate row
-         *  cand_focus=false → "1面 2命 3马 ..."   (no focus marker)
-         *  cand_focus=true  → ">1面 2命 3马 ..."  (focus marker) */
+         *  cand_focus=false → " 1面 2命 3马 ..."  (indicator column blank, candidates at fixed x)
+         *  cand_focus=true  → ">1面 2命 3马 ..."  (focus marker, candidates at same fixed x) */
         if (g_ime.cand_count > 0u) {
-            uint8_t cx2 = 2u;
+            const uint8_t CAND_START_X = 2u + 7u;  /* 2px margin + 7px reserved for ">" */
             if (g_ime.cand_focus) {
-                UI_PrintStringSmallNormal(">", cx2, 0u, 5u);
-                cx2 += 7u; /* 6px glyph + 1px gap */
+                UI_PrintStringSmallNormal(">", 2u, 0u, 5u);
             }
+            uint8_t cx2 = CAND_START_X;
             char nbuf[2] = "1";
             for (uint8_t ci = 0u; ci < g_ime.cand_count && cx2 < 110u; ci++) {
                 nbuf[0] = (char)('1' + ci);
