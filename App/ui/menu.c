@@ -861,19 +861,21 @@ static void UI_DisplayNameEdit(void)
     /* ---- PY mode overlays (lines 4-5): Quansheng-style two-row IME ---- */
     if (g_ime.mode == IME_MODE_PINYIN && g_ime.py_opt_count > 0u) {
         /* Line 4: option row
-         *  cand_focus=false → ">opt[idx] opt[idx+1] ..."  (focus marker)
-         *  cand_focus=true  → "opt[idx]"                  (just current, no >) */
+         *  cand_focus=false → ">opt[idx] opt[idx+1] ..."
+         *  cand_focus=true  → " opt[idx]"  (just current option, no >)
+         *  ">" is printed separately so option text always starts at OPT_START_X. */
         {
+            const uint8_t OPT_START_X = 2u + 7u;  /* 2px margin + 7px reserved for ">" */
+            if (!g_ime.cand_focus) {
+                UI_PrintStringSmallNormal(">", 2u, 0u, 4u);
+            }
             char obuf[32];
             uint8_t bpos = 0u;
-            uint8_t start_idx = g_ime.cand_focus ? g_ime.py_opt_idx : g_ime.py_opt_idx;
-            for (uint8_t i = start_idx;
+            for (uint8_t i = g_ime.py_opt_idx;
                  i < g_ime.py_opt_count && bpos < (uint8_t)(sizeof(obuf) - 2u);
                  i++)
             {
-                if (i == g_ime.py_opt_idx && !g_ime.cand_focus)
-                    obuf[bpos++] = '>';
-                else if (i > g_ime.py_opt_idx)
+                if (i > g_ime.py_opt_idx)
                     obuf[bpos++] = ' ';
                 uint8_t ol = (uint8_t)__builtin_strlen(g_ime.py_opts[i]);
                 if (bpos + ol >= (uint8_t)(sizeof(obuf) - 1u)) break;
@@ -882,7 +884,7 @@ static void UI_DisplayNameEdit(void)
                 if (g_ime.cand_focus) break; /* show only current option */
             }
             obuf[bpos] = '\0';
-            UI_PrintStringSmallNormal(obuf, 2u, 0u, 4u);
+            UI_PrintStringSmallNormal(obuf, OPT_START_X, 0u, 4u);
         }
 
         /* Line 5: candidate row
