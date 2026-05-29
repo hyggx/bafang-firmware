@@ -61,7 +61,7 @@ typedef struct {
     uint8_t  band;
     uint8_t  scanlist;
     uint8_t  compander;
-    char     name[17];
+    char     name[16];
 } BEAM_Payload_t;
 
 static_assert(sizeof(BEAM_Payload_t) <= 64);
