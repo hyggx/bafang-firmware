@@ -250,7 +250,7 @@ cmake --build --preset Default -j
 - [armel (F4HWN)](https://github.com/armel) — UV-K1/K5 V3 PY32F071 适配
 - [muzkr](https://github.com/muzkr) — PY32F071 驱动开发
 - [fagci (Mikhail)](https://github.com/fagci) — 频谱分析仪
-- [dondji](https://github.com/dondji) — 拼音码点表
+- [Dondji](https://github.com/EthanYan6/Dondji) — 拼音码点表
 
 ---
 
