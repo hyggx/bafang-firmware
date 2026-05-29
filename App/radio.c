@@ -1291,7 +1291,7 @@ void RADIO_PrepareTX(void)
     #endif
     {
 
-        gTxTimerCountdown_500ms = ((gEeprom.TX_TIMEOUT_TIMER + 1) * 5) * 2;
+        gTxTimerCountdown_500ms = gEeprom.TX_TIMEOUT_TIMER * 30 * 2;  // step × 30 s, ×2 for 500 ms ticks
 
         /*
         if (gEeprom.TX_TIMEOUT_TIMER == 0)

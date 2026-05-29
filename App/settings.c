@@ -162,7 +162,7 @@ void SETTINGS_InitEEPROM(void)
         gSetting_set_audio_am = (((Data[0] >> 4) & 0x0F) < 3) ? ((Data[0] >> 4) & 0x0F) : 0;
     #endif
     gEeprom.SQUELCH_LEVEL        = (Data[1] < 10) ? Data[1] : 1;
-    gEeprom.TX_TIMEOUT_TIMER     = (Data[2] > 4 && Data[2] < 180) ? Data[2] : 11;
+    gEeprom.TX_TIMEOUT_TIMER     = (Data[2] >= 1 && Data[2] <= 30) ? Data[2] : 2;  // default 2 × 30 s = 60 s
     #ifdef ENABLE_NOAA
         gEeprom.NOAA_AUTO_SCAN   = (Data[3] <  2) ? Data[3] : false;
     #endif

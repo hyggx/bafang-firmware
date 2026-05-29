@@ -275,9 +275,8 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
             break;
 
         case MENU_TOT:
-            //*pMin = 0;
-            *pMin = 5;
-            *pMax = 179;
+            *pMin = 1;
+            *pMax = 30;  // 1..30 steps × 30 s = 30 s..900 s
             break;
 
         #ifdef ENABLE_VOX

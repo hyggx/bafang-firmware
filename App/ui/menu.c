@@ -1485,14 +1485,14 @@ void UI_DisplayMenu(void)
             break;
 
         case MENU_TOT:
-            sprintf(String, "%02dm:%02ds", (((gSubMenuSelection + 1) * 5) / 60), (((gSubMenuSelection + 1) * 5) % 60));
-            //#if !defined(ENABLE_SPECTRUM) || !defined(ENABLE_FMRADIO)
-            //ST7565_Gauge(4, 5, 179, gSubMenuSelection);
+        {
+            const uint16_t secs = gSubMenuSelection * 30;
+            sprintf(String, "%02dm:%02ds", secs / 60, secs % 60);
             gaugeLine = 6;
-            gaugeMin = 5;
-            gaugeMax = 179;
-            //#endif
+            gaugeMin = 1;
+            gaugeMax = 30;
             break;
+        }
 
         #ifdef ENABLE_VOICE
             case MENU_VOICE:
