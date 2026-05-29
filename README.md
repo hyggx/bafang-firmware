@@ -146,6 +146,17 @@
 4. 等待进度条走完
 5. 对讲机自动重启，加载新固件完成 ✅
 
+### 第五步：刷写中文字体（中文用户必做）
+
+> 本固件内置中文菜单与拼音输入法（IME），需要将字体文件写入 SPI Flash 才能显示汉字。
+
+1. 对讲机正常开机后连接 USB
+2. 用 **Chrome / Edge** 打开 **[https://hyggx.github.io/bafang-firmware/](https://hyggx.github.io/bafang-firmware/)**
+3. 按页面提示完成刷写，打印成功信息后断开 USB
+
+> **提示**：字体数据存储在 SPI Flash，不受固件更新影响，**只需刷一次**。  
+> 如需使用 Python 脚本手动刷写，请参阅 [Wiki：Python 脚本刷字体](../../wiki/CJK-Font-Flash-Python)。
+
 ---
 
 ## 💾 备份和恢复校准数据
@@ -227,18 +238,6 @@ cmake --build --preset Default -j
 输出文件位于 `build/<Preset>/`，包含 `.elf`、`.bin`、`.hex`。
 
 **功能开关**：在 `CMakePresets.json` 的 `Custom` Preset 中修改 `cacheVariables`，修改后需清空 `build/Custom/` 目录并重新运行 `cmake --preset Custom`。
-
----
-
-## 🈶 中文字体刷写
-
-> 本固件内置中文菜单与拼音输入法（IME），需要额外将字体文件写入 SPI Flash 才能显示汉字。
-
-### 方式一：网页工具（推荐，无需安装）
-
-打开 **[https://hyggx.github.io/bafang-firmware/](https://hyggx.github.io/bafang-firmware/)**，用 **Chrome / Edge** 直接在浏览器中完成刷写，无需安装任何软件。
-
-> **提示**：固件刷写完成后只需刷一次字体；字体数据存储在 SPI Flash，不受固件更新影响。如需使用 Python 脚本手动刷写，请参阅 [Wiki：Python 脚本刷字体](../../wiki/CJK-Font-Flash-Python)。
 
 ---
 
