@@ -236,7 +236,7 @@ cmake --build --preset Default -j
 
 ### 方式一：网页工具（推荐，无需安装）
 
-打开 [tools/webflash/index.html](tools/webflash/index.html)（或托管于 GitHub Pages 的版本），用 **Chrome / Edge** 直接在浏览器中完成刷写，无需安装任何软件。
+打开 **[https://hyggx.github.io/bafang-firmware/](https://hyggx.github.io/bafang-firmware/)**，用 **Chrome / Edge** 直接在浏览器中完成刷写，无需安装任何软件。
 
 ### 方式二：Python 脚本
 
