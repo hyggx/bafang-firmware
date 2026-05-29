@@ -130,7 +130,7 @@ typedef struct VFO_Info_t
 
     uint8_t        Compander;
 
-    char           Name[16];
+    char           Name[17];
 } VFO_Info_t;
 
 // Settings of the main VFO that is selected by the user
