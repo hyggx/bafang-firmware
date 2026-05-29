@@ -745,8 +745,8 @@ void UI_MENU_GoToItem(uint8_t menu_id)
 int32_t gSubMenuSelection;
 
 // edit box
-char    edit_original[17]; // a copy of the text before editing so that we can easily test for changes/difference
-char    edit[17];
+char    edit_original[18]; // a copy of the text before editing so that we can easily test for changes/difference
+char    edit[18];
 int     edit_index;
 bool    edit_is_uppercase = false;
 ImeCtx_t g_ime;  /* pinyin IME context — reset each time channel-name editing starts */
@@ -765,26 +765,27 @@ ImeCtx_t g_ime;  /* pinyin IME context — reset each time channel-name editing 
  *   gFrameBuffer[6]  : candidates "1级2即..."  (PY mode only)
  *
  * Slot geometry: 10 slots × 8 px = 80 px, starting at x=24.
- *   ASCII/digit → 1 slot (7 px glyph, stride 8 px)
- *   CJK char    → 2 slots (12 px glyph centred in 16 px, +2 px left)
- *   Empty slot  → '-' dash placeholder (big font)
+ *   ASCII/digit → 1 unit ( 7 px glyph, stride  8 px)
+ *   CJK char    → 1 unit (12 px glyph, stride 13 px)
+ *   Empty slot  → '-' dash placeholder (big font, 8 px)
  * ----------------------------------------------------------------------- */
-#define EDIT_SLOTS      10u
-#define EDIT_SLOT_W      8u   /* big-font char stride (7 px glyph + 1 px gap) */
-#define EDIT_START_X    ((LCD_WIDTH - EDIT_SLOTS * EDIT_SLOT_W) / 2u)  /* = 24 */
+#define EDIT_MAX_PX     80u   /* total edit area width in pixels (= 10 × 8) */
+#define EDIT_SLOT_W      8u   /* ASCII/dash stride: 7 px glyph + 1 px gap   */
+#define CJK_SLOT_W      13u   /* CJK stride: 12 px glyph + 1 px gap         */
+#define EDIT_START_X    ((LCD_WIDTH - EDIT_MAX_PX) / 2u)  /* = 24 */
 
-/* Return number of visual slots occupied by edit[0..byte_len). */
-static uint8_t edit_count_slots(int byte_len)
+/* Return pixel width occupied by edit[0..byte_len). */
+static uint8_t edit_count_px(int byte_len)
 {
-    uint8_t slots = 0;
+    uint8_t px = 0u;
     int i = 0;
     while (i < byte_len) {
         uint8_t b = (uint8_t)edit[i];
-        if (b >= 0xE0u) { slots += 2u; i += 3; }
+        if (b >= 0xE0u) { px += CJK_SLOT_W; i += 3; }
         else if (b == ' ' || b == '\0') { break; }
-        else { slots += 1u; i++; }
+        else { px += EDIT_SLOT_W; i++; }
     }
-    return slots;
+    return px;
 }
 
 static void UI_DisplayNameEdit(void)
@@ -800,57 +801,57 @@ static void UI_DisplayNameEdit(void)
     /* ---- lines 1-2: edit buffer rendered as big font ---- */
     {
         static const unsigned int DASH_IDX = 12u; /* '-' - ' ' - 1 in gFontBig */
-        uint8_t px    = EDIT_START_X;
-        uint8_t slots = 0u;
-        int     i     = 0;
+        uint8_t px   = EDIT_START_X;
+        uint8_t used = 0u;   /* pixels consumed so far */
+        int     i    = 0;
 
-        while (i < CHANNEL_NAME_MAX_BYTES && slots < EDIT_SLOTS) {
+        while (i < CHANNEL_NAME_MAX_BYTES && used < EDIT_MAX_PX) {
             uint8_t b = (uint8_t)edit[i];
             if (b == 0u)
                 break;
             if (b >= 0xE0u) {
-                /* CJK 3-byte UTF-8: 2 slots (16 px), glyph 12 px at +2 */
+                /* CJK 3-byte UTF-8: 13 px (12 px glyph + 1 px gap) */
+                if (used + CJK_SLOT_W > EDIT_MAX_PX) break;
                 char utf8[4] = { (char)b, edit[i + 1], edit[i + 2], '\0' };
-                UI_PrintStringUTF8(utf8, (uint8_t)(px + 2u), 1u);
-                px    += 2u * EDIT_SLOT_W;
-                slots += 2u;
-                i     += 3;
+                UI_PrintStringUTF8(utf8, px, 1u);
+                px   += CJK_SLOT_W;
+                used += CJK_SLOT_W;
+                i    += 3;
             } else if (b > (uint8_t)' ') {
-                /* ASCII printable: 1 slot (8 px) */
+                /* ASCII printable: 8 px (7 px glyph + 1 px gap) */
+                if (used + EDIT_SLOT_W > EDIT_MAX_PX) break;
                 unsigned int idx = (unsigned int)b - (unsigned int)' ' - 1u;
                 memcpy(gFrameBuffer[1] + px, &gFontBig[idx][0], 7u);
                 memcpy(gFrameBuffer[2] + px, &gFontBig[idx][7], 7u);
-                px    += EDIT_SLOT_W;
-                slots += 1u;
+                px   += EDIT_SLOT_W;
+                used += EDIT_SLOT_W;
                 i++;
             } else {
-                /* Space / unprintable → '-' dash placeholder */
+                /* Space → '-' dash placeholder */
+                if (used + EDIT_SLOT_W > EDIT_MAX_PX) break;
                 memcpy(gFrameBuffer[1] + px, &gFontBig[DASH_IDX][0], 7u);
                 memcpy(gFrameBuffer[2] + px, &gFontBig[DASH_IDX][7], 7u);
-                px    += EDIT_SLOT_W;
-                slots += 1u;
+                px   += EDIT_SLOT_W;
+                used += EDIT_SLOT_W;
                 i++;
             }
         }
-        /* Pad any remaining visual slots with dashes */
-        while (slots < EDIT_SLOTS) {
+        /* Pad remaining area with dashes */
+        while (used + EDIT_SLOT_W <= EDIT_MAX_PX) {
             memcpy(gFrameBuffer[1] + px, &gFontBig[DASH_IDX][0], 7u);
             memcpy(gFrameBuffer[2] + px, &gFontBig[DASH_IDX][7], 7u);
-            px    += EDIT_SLOT_W;
-            slots++;
+            px   += EDIT_SLOT_W;
+            used += EDIT_SLOT_W;
         }
     }
 
     /* ---- line 3: solid block cursor ----
-     * Hidden when all 10 slots are filled (cur_slot == EDIT_SLOTS). */
+     * Hidden when the edit area is full (used_px == EDIT_MAX_PX). */
     {
-        uint8_t cur_slot = edit_count_slots(edit_index);
-        if (cur_slot < EDIT_SLOTS) {
-            uint8_t cx = (uint8_t)(EDIT_START_X + cur_slot * EDIT_SLOT_W);
-            /* 4×4 diamond centred in the slot:
-             *   row bit pattern (top→bottom): 0x04, 0x0E, 0x1F, 0x0E
-             *   Stored LSB-first in a vertical byte: bit0=top row.
-             *   Diamond occupies cols cx+2 .. cx+5 (4 px wide, centred in 8 px slot). */
+        uint8_t cur_px = edit_count_px(edit_index);
+        if (cur_px < EDIT_MAX_PX) {
+            uint8_t cx = (uint8_t)(EDIT_START_X + cur_px);
+            /* 4×4 diamond centred in the next 8-px slot. */
             const uint8_t diamond[4] = { 0x04u, 0x0Eu, 0x1Fu, 0x0Eu };
             uint8_t mid = (uint8_t)(cx + EDIT_SLOT_W / 2u - 2u);
             for (uint8_t d = 0u; d < 4u && (uint8_t)(mid + d) < LCD_WIDTH; d++)

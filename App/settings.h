@@ -20,16 +20,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Maximum bytes for a channel name in SPI Flash (16-byte slot).
-// Supports up to 4 Chinese characters (UTF-8: 3 bytes each = 12 bytes)
-// plus a null terminator, or up to 15 ASCII characters.
-#define CHANNEL_NAME_MAX_BYTES  16u
+// Maximum bytes for a channel name in SPI Flash (17-byte slot).
+// Supports up to 5 Chinese characters (UTF-8: 3 bytes each = 15 bytes)
+// plus one ASCII/digit plus a null terminator, or up to 16 ASCII characters.
+#define CHANNEL_NAME_MAX_BYTES  17u
 
 // EEPROM layout version — increment whenever EEPROM data structures change
 // in a way that is not backward-compatible with older firmware builds.
 // v1: Initial Bafang release (channel names use full 16-byte slot).
 // v2: Add LANGUAGE field to EEPROM_Config_t.
-#define EEPROM_LAYOUT_VERSION       2u
+// v3: Channel name SPI Flash stride expanded from 16 to 17 bytes.
+#define EEPROM_LAYOUT_VERSION       3u
 #define EEPROM_LAYOUT_VERSION_ADDR  0x00A170u  // 1 byte, immediately after VERSION_STRING_2 area
 #define EEPROM_LANGUAGE_ADDR        0x00A171u  // 1 byte, UI language (LangId_t)
 

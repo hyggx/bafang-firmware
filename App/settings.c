@@ -750,9 +750,9 @@ void SETTINGS_FetchChannelName(char *s, const uint16_t channel)
         return;
 
     // Read CHANNEL_NAME_MAX_BYTES-1 bytes so the null terminator is always written
-    // within a CHANNEL_NAME_MAX_BYTES-sized caller buffer (e.g. Name[16], name[16]).
-    // The 16th flash byte is the null written by SaveChannelName, so no name data is lost.
-    PY25Q16_ReadBuffer(0x004000 + (channel * 16), s, CHANNEL_NAME_MAX_BYTES - 1u);
+    // within a CHANNEL_NAME_MAX_BYTES-sized caller buffer (e.g. Name[17], name[17]).
+    // The 17th flash byte is the null written by SaveChannelName, so no name data is lost.
+    PY25Q16_ReadBuffer(0x004000 + (channel * 17), s, CHANNEL_NAME_MAX_BYTES - 1u);
 
     // Accept ASCII printable (0x20-0x7E) and UTF-8 continuation bytes (0x80+).
     // Stop at the first control byte (< 0x20) or erased-flash 0xFF.
@@ -1266,7 +1266,7 @@ void SETTINGS_SaveBatteryCalibration(const uint16_t * batteryCalibration)
 
 void SETTINGS_SaveChannelName(uint16_t channel, const char * name)
 {
-    uint16_t offset = channel * 16;
+    uint16_t offset = channel * 17;
     uint8_t buf[CHANNEL_NAME_MAX_BYTES] = {0};
     memcpy(buf, name, MIN(strlen(name), CHANNEL_NAME_MAX_BYTES - 1u));
     // 0x0F50

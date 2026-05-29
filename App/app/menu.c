@@ -1525,20 +1525,20 @@ static void t9_reset(void)
 static KEY_Code_t edit_last_key = 255;
 static uint8_t edit_char_index = 0;
 
-/* Visual slot count: ASCII = 1 slot, CJK (3-byte UTF-8) = 2 slots */
-static uint8_t edit_visual_slots(void)
+/* Pixel width consumed so far: CJK = 13 px, ASCII = 8 px */
+static uint8_t edit_visual_pixels(void)
 {
-    uint8_t slots = 0;
+    uint8_t px = 0u;
     int i = 0;
     while (i < edit_index) {
         uint8_t b = (uint8_t)edit[i];
-        if (b >= 0xE0u) { slots += 2u; i += 3; }
+        if (b >= 0xE0u) { px += 13u; i += 3; }
         else if (b == ' ' || b == '\0') { break; }
-        else { slots += 1u; i++; }
+        else { px += 8u; i++; }
     }
-    return slots;
+    return px;
 }
-#define EDIT_MAX_SLOTS 10u
+#define EDIT_MAX_PX 80u
 
 static uint8_t edit_char_len_at(int index)
 {
@@ -1629,7 +1629,7 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
          * Same key → cycle chars; different key → commit prev, start new.
          * 1.5 s idle → TimeSlice10ms auto-commits and advances cursor.    */
         if (g_ime.mode == IME_MODE_EN) {
-            if (edit_visual_slots() < EDIT_MAX_SLOTS && edit_index < CHANNEL_NAME_MAX_BYTES) {
+            if (edit_visual_pixels() < EDIT_MAX_PX && edit_index < CHANNEL_NAME_MAX_BYTES) {
                 const int8_t  ki    = (int8_t)(Key - KEY_0);
                 const char   *chars = s_t9[ki];
                 const uint8_t nch   = (uint8_t)__builtin_strlen(chars);
@@ -1639,7 +1639,7 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                 } else {
                     /* Different key — commit current and start new */
                     if (t9_last_key >= 0 && t9_timer > 0
-                        && edit_visual_slots() < EDIT_MAX_SLOTS
+                        && edit_visual_pixels() < EDIT_MAX_PX
                         && edit_index < CHANNEL_NAME_MAX_BYTES - 1) {
                         edit_index++;
                     }
@@ -1666,7 +1666,7 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
                 if (Key >= KEY_1 && Key <= KEY_5 && idx < g_ime.cand_count) {
                     uint16_t cp = IME_PickCandidate(&g_ime, idx);
                     if (cp != 0 && edit_index + 3 <= CHANNEL_NAME_MAX_BYTES
-                        && edit_visual_slots() + 2u <= EDIT_MAX_SLOTS) {
+                        && edit_visual_pixels() + 13u <= EDIT_MAX_PX) {
                         edit[edit_index]     = (char)(0xE0u | (cp >> 12));
                         edit[edit_index + 1] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
                         edit[edit_index + 2] = (char)(0x80u | (cp & 0x3Fu));
@@ -2054,18 +2054,18 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
              * reappears at the 10th slot after the first backspace. */
             {
                 int  bi    = 0;   /* byte index */
-                uint8_t vs = 0;   /* visual slots consumed */
+                uint8_t vs = 0;   /* visual pixels consumed */
                 int  last_char_bi = 0;  /* byte start of last real char */
                 uint8_t last_char_len = 1u;
-                while (bi < CHANNEL_NAME_MAX_BYTES && vs < EDIT_MAX_SLOTS) {
+                while (bi < CHANNEL_NAME_MAX_BYTES && vs < EDIT_MAX_PX) {
                     uint8_t b = (uint8_t)edit[bi];
                     if (b == ' ' || b == '\0')
                         break;           /* first trailing space → cursor here */
                     last_char_bi = bi;
-                    if (b >= 0xE0u) { last_char_len = 3u; vs += 2u; bi += 3; }
-                    else             { last_char_len = 1u; vs += 1u; bi += 1; }
+                    if (b >= 0xE0u) { last_char_len = 3u; vs += 13u; bi += 3; }
+                    else             { last_char_len = 1u; vs +=  8u; bi += 1; }
                 }
-                if (vs >= EDIT_MAX_SLOTS)
+                if (vs >= EDIT_MAX_PX)
                     edit_index = last_char_bi + last_char_len;  /* full: past last char */
                 else
                     edit_index = bi;            /* not full: sit on first space */
@@ -2456,7 +2456,7 @@ void MENU_TimeSlice10ms(void)
     if (--t9_timer == 0) {
         t9_reset();
         /* Auto-advance cursor to next slot after timeout */
-        if (edit_visual_slots() < EDIT_MAX_SLOTS
+        if (edit_visual_pixels() < EDIT_MAX_PX
             && edit_index < CHANNEL_NAME_MAX_BYTES - 1) {
             edit_index++;
             gUpdateDisplay = true;
