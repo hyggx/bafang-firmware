@@ -1436,7 +1436,7 @@ void UI_DisplayMenu(void)
                 }
 
                 SETTINGS_FetchChannelName(String, gSubMenuSelection);
-                UI_PrintString(String[0] ? String : "--", menu_item_x1, menu_item_x2, 4, 8);
+                print_menu_value(String[0] ? String : "--", menu_item_x1, menu_item_x2, 4);
                 already_printed = true;
                 break;
             }
