@@ -861,26 +861,35 @@ static void UI_DisplayNameEdit(void)
     /* ---- PY mode overlays (lines 4-5): Quansheng-style two-row IME ---- */
     if (g_ime.mode == IME_MODE_PINYIN && g_ime.py_opt_count > 0u) {
         /* Line 4: option row
-         *  cand_focus=false → ">opt[idx] opt[idx+1] ..."
+         *  cand_focus=false → ">opt[idx] opt[idx+1] ..."  (fit in available width)
          *  cand_focus=true  → " opt[idx]"  (just current option, no >)
-         *  ">" is printed separately so option text always starts at OPT_START_X. */
+         *  ">" is printed separately so option text always starts at OPT_START_X.
+         *  Options that would overflow the screen are omitted; UP/DOWN cycles
+         *  py_opt_idx to scroll the visible window. */
         {
-            const uint8_t OPT_START_X = 2u + 7u;  /* 2px margin + 7px reserved for ">" */
+            const uint8_t OPT_START_X  = 2u + 7u;               /* 9 px */
+            const uint8_t OPT_MAX_PX   = LCD_WIDTH - OPT_START_X; /* 119 px */
+            const uint8_t SMALL_CHAR_W = (uint8_t)(ARRAY_SIZE(gFontSmall[0]) + 1u); /* 7 px */
             if (!g_ime.cand_focus) {
                 UI_PrintStringSmallNormal(">", 2u, 0u, 4u);
             }
             char obuf[32];
-            uint8_t bpos = 0u;
+            uint8_t bpos    = 0u;
+            uint8_t px_used = 0u;
             for (uint8_t i = g_ime.py_opt_idx;
                  i < g_ime.py_opt_count && bpos < (uint8_t)(sizeof(obuf) - 2u);
                  i++)
             {
+                uint8_t ol     = (uint8_t)__builtin_strlen(g_ime.py_opts[i]);
+                uint8_t sep_px = (i > g_ime.py_opt_idx) ? SMALL_CHAR_W : 0u;
+                uint8_t opt_px = (uint8_t)(ol * SMALL_CHAR_W);
+                if ((uint8_t)(px_used + sep_px + opt_px) > OPT_MAX_PX) break;
                 if (i > g_ime.py_opt_idx)
                     obuf[bpos++] = ' ';
-                uint8_t ol = (uint8_t)__builtin_strlen(g_ime.py_opts[i]);
                 if (bpos + ol >= (uint8_t)(sizeof(obuf) - 1u)) break;
                 __builtin_memcpy(obuf + bpos, g_ime.py_opts[i], ol);
-                bpos = (uint8_t)(bpos + ol);
+                bpos    = (uint8_t)(bpos    + ol);
+                px_used = (uint8_t)(px_used + sep_px + opt_px);
                 if (g_ime.cand_focus) break; /* show only current option */
             }
             obuf[bpos] = '\0';
