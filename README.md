@@ -238,65 +238,7 @@ cmake --build --preset Default -j
 
 打开 **[https://hyggx.github.io/bafang-firmware/](https://hyggx.github.io/bafang-firmware/)**，用 **Chrome / Edge** 直接在浏览器中完成刷写，无需安装任何软件。
 
-### 方式二：Python 脚本
-
-#### 环境要求
-
-```bash
-pip install pyserial
-```
-
-### 准备字体文件
-
-| 文件 | 字形数 | 大小 | 适用场景 |
-|------|--------|------|---------|
-| `tools/cjk_font_menu.bin` | 232 | ≈ 6.4 KB | 仅菜单固定字符串（今日可刷，无需新固件） |
-| `tools/cjk_font.bin` | 1149 | ≈ 31.4 KB | 完整 IME 拼音候选字（需配套固件） |
-
-重新生成字体（需要 Python 3 + `fonttools`）：
-
-```bash
-# 仅菜单字体（约 6.4 KB，适合通过 EEPROM 协议写入）
-python3 tools/gen_cjk_font.py gen \
-    --bdf tools/wenquanyi_9pt.bdf \
-    --subset App/l10n/strings_zh.c \
-    --subset App/l10n/strings.h \
-    --subset App/ui/menu.c \
-    --subset App/ui/menu_sub_values_zh.c \
-    --out tools/cjk_font_menu.bin
-
-# 完整 IME 字体（约 31 KB，需 CMD_0535 直写路径）
-python3 tools/gen_cjk_font.py gen \
-    --bdf tools/wenquanyi_9pt.bdf \
-    --subset App/l10n/strings_zh.c \
-    --subset App/l10n/strings.h \
-    --subset App/ui/menu.c \
-    --subset App/ui/menu_sub_values_zh.c \
-    --subset App/ime/pinyin_table.c \
-    --out tools/cjk_font.bin
-```
-
-### 刷写字体
-
-对讲机**正常开机**后连接 USB，运行：
-
-```bash
-# 菜单字体（≤ 12 KB，走 EEPROM 虚地址协议，兼容任意版本固件）
-python3 tools/serialtool/flash_font.py \
-    --port /dev/cu.usbserial-130 \
-    --font tools/cjk_font_menu.bin
-
-# 完整 IME 字体（37.5 KB，自动切换到 CMD_0535 直写 SPI Flash，需固件含 ENABLE_UART_SPI_WRITE）
-python3 tools/serialtool/flash_font.py \
-    --port /dev/cu.usbserial-130 \
-    --font tools/cjk_font.bin
-```
-
-Windows 用户将 `/dev/cu.usbserial-130` 替换为 `COM3`（或实际端口号）。
-
-脚本会自动完成写入后的逐块读回校验，打印 `Done. CJK font successfully written to SPI Flash.` 表示成功。
-
-> **提示**：固件刷写完成后只需刷一次字体；字体数据存储在 SPI Flash，不受固件更新影响。
+> **提示**：固件刷写完成后只需刷一次字体；字体数据存储在 SPI Flash，不受固件更新影响。如需使用 Python 脚本手动刷写，请参阅 [Wiki：Python 脚本刷字体](../../wiki/CJK-Font-Flash-Python)。
 
 ---
 
