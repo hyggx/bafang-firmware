@@ -36,6 +36,7 @@ typedef enum {
     IME_IDLE       = 0, /* no active PY input; key not consumed by IME     */
     IME_OPTION,         /* option row has focus (T9 keys extend sequence)  */
     IME_CANDIDATES,     /* candidate row has focus (1-6 commit a char)     */
+    IME_REJECTED,       /* key produced no valid pinyin; state unchanged   */
 } ImeState_t;
 
 /* Input mode (cycled by KEY_F / #) */

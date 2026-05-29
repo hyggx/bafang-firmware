@@ -277,12 +277,19 @@ ImeState_t IME_Feed(ImeCtx_t *ctx, KEY_Code_t key, bool held)
             ctx->py_keys[ctx->py_key_count++] = key;
             ctx->cand_page = 0;
             s_rebuild_opts(ctx);
-            if (ctx->py_opt_count > 0)
+            if (ctx->py_opt_count > 0) {
                 s_load_cands_page(ctx);
-            else
-                ctx->cand_count = 0;
+            } else {
+                /* No valid pinyin — roll back and reject the key */
+                ctx->py_key_count--;
+                /* Restore the previous valid option/candidate state */
+                s_rebuild_opts(ctx);
+                if (ctx->py_opt_count > 0)
+                    s_load_cands_page(ctx);
+                return IME_REJECTED;
+            }
         }
-        return (ctx->py_opt_count > 0) ? IME_OPTION : IME_IDLE;
+        return IME_OPTION;
     }
 
     /* KEY_UP: cycle to next option */

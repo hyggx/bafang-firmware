@@ -1657,6 +1657,11 @@ static void MENU_Key_0_to_9(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
         /* ---- PY MODE: delegate to IME state machine ---- */
         {
             ImeState_t st = IME_Feed(&g_ime, Key, bKeyHeld);
+            if (st == IME_REJECTED) {
+                gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+                gRequestDisplayScreen = DISPLAY_MENU;
+                return;
+            }
             /* Only commit a character when in candidate-focus AND a valid
              * candidate key was pressed (KEY_1..KEY_5). */
             if (st == IME_CANDIDATES && g_ime.cand_focus) {
