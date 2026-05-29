@@ -271,8 +271,8 @@ extern uint8_t           gMenuCatSavedCursor[MENU_CAT_COUNT]; // last visited cu
 
 extern int32_t           gSubMenuSelection;
                          
-extern char              edit_original[18];
-extern char              edit[18];
+extern char              edit_original[17];
+extern char              edit[17];
 extern int               edit_index;
 extern bool              edit_is_uppercase;
 extern ImeCtx_t          g_ime;  /* pinyin IME context */
