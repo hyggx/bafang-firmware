@@ -842,7 +842,7 @@ static void UI_DisplayNameEdit(void)
     }
 
     /* ---- line 3: solid block cursor ----
-     * 2-slots wide only in PY mode when CJK candidates are ready. */
+     * Hidden when all 10 slots are filled (cur_slot == EDIT_SLOTS). */
     {
         uint8_t cur_slot = edit_count_slots(edit_index);
         if (cur_slot < EDIT_SLOTS) {

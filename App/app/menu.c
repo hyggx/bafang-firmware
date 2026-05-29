@@ -2021,7 +2021,9 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
             edit_index          = -1;
         }
 
-        return;
+        if (m != MENU_MEM_NAME)
+            return;
+        /* MENU_MEM_NAME: fall through to enter edit mode immediately */
     }
 
     if (UI_MENU_GetCurrentMenuId() == MENU_MEM_NAME)
@@ -2047,22 +2049,25 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
             IME_Reset(&g_ime);  /* start in EN mode; # cycles modes */
 
             /* Position cursor after last real character (first trailing space).
-             * If all 10 visual slots are full, stay on the last character so
-             * the user can overwrite it rather than being stuck past the end. */
+             * When all 10 visual slots are full, advance edit_index past the
+             * last char so semantics are consistent: edit_index always points
+             * to the next insertion position.  The cursor hides when full and
+             * reappears at the 10th slot after the first backspace. */
             {
                 int  bi    = 0;   /* byte index */
                 uint8_t vs = 0;   /* visual slots consumed */
                 int  last_char_bi = 0;  /* byte start of last real char */
+                uint8_t last_char_len = 1u;
                 while (bi < CHANNEL_NAME_MAX_BYTES && vs < EDIT_MAX_SLOTS) {
                     uint8_t b = (uint8_t)edit[bi];
                     if (b == ' ' || b == '\0')
                         break;           /* first trailing space → cursor here */
                     last_char_bi = bi;
-                    if (b >= 0xE0u) { vs += 2u; bi += 3; }
-                    else             { vs += 1u; bi += 1; }
+                    if (b >= 0xE0u) { last_char_len = 3u; vs += 2u; bi += 3; }
+                    else             { last_char_len = 1u; vs += 1u; bi += 1; }
                 }
                 if (vs >= EDIT_MAX_SLOTS)
-                    edit_index = last_char_bi;  /* full: sit on last char */
+                    edit_index = last_char_bi + last_char_len;  /* full: past last char */
                 else
                     edit_index = bi;            /* not full: sit on first space */
             }
