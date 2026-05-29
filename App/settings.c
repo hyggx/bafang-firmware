@@ -66,6 +66,25 @@ void SETTINGS_InitEEPROM(void)
             // v1: Channel name slots were always 16 bytes in the physical flash;
             // only the read/write length changed from 10 → 16.  No data migration
             // needed — existing names stored with older firmware are still valid.
+            //
+            // v2→v3: TX_TIMEOUT_TIMER semantic change (ec054ce).
+            //   Old formula: (value + 1) × 5 seconds, stored range 5–179, default 11 (=60 s)
+            //   New formula: value × 30 seconds, stored range 1–30, default 2 (=60 s)
+            //   Migrate any stored value in the old range (5–179) to the nearest 30-second step.
+            if (storedLayout >= 1u && storedLayout <= 2u)
+            {
+                uint8_t raw = 0xFFu;
+                PY25Q16_ReadBuffer(0x00A002u, &raw, 1);
+                if (raw > 4u && raw < 180u)
+                {
+                    // old_seconds = (raw + 1) * 5;  new_val = round(old_seconds / 30)
+                    uint8_t new_v = (uint8_t)(((uint32_t)(raw + 1u) * 5u + 15u) / 30u);
+                    if (new_v < 1u)  new_v = 1u;
+                    if (new_v > 30u) new_v = 30u;
+                    PY25Q16_WriteBuffer(0x00A002u, &new_v, 1, false);
+                }
+            }
+
             uint8_t ver = EEPROM_LAYOUT_VERSION;
             PY25Q16_WriteBuffer(EEPROM_LAYOUT_VERSION_ADDR, &ver, 1, false);
         }

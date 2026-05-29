@@ -29,7 +29,7 @@
 // in a way that is not backward-compatible with older firmware builds.
 // v1: Initial Bafang release (channel names use full 16-byte slot).
 // v2: Add LANGUAGE field to EEPROM_Config_t.
-#define EEPROM_LAYOUT_VERSION       2u
+#define EEPROM_LAYOUT_VERSION       3u
 #define EEPROM_LAYOUT_VERSION_ADDR  0x00A170u  // 1 byte, immediately after VERSION_STRING_2 area
 #define EEPROM_LANGUAGE_ADDR        0x00A171u  // 1 byte, UI language (LangId_t)
 

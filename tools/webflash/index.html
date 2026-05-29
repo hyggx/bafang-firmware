@@ -17,6 +17,7 @@ input[type=file]:hover{border-color:#58a6ff}
 .file-info{font-size:.78rem;color:#8b949e;margin-top:.4rem;min-height:1em}
 .file-info.spi{color:#d2a679}
 .file-info.eeprom{color:#79c0ff}
+.file-info.error{color:#f85149}
 button{padding:.45rem 1.1rem;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:600;transition:opacity .15s,background .15s}
 button:disabled{opacity:.35;cursor:not-allowed}
 #btn-connect{background:#238636;color:#fff}
@@ -374,11 +375,59 @@ function setConnected(ok, label = '') {
 }
 
 // ─── File picker ──────────────────────────────────────────────────────────
+// Font binary header layout (must match gen_cjk_font.py / App/l10n/cjk_font.h):
+//   [0]  uint16_t LE  magic       = 0x464D ("FM")
+//   [2]  uint8_t      version     = 1
+//   [3]  uint8_t      reserved    = 0
+//   [4]  uint16_t LE  glyph_count
+//   [6]  uint16_t LE  (reserved)
+//   [8]  int32_t  LE  bitmap_off  = 16 + glyph_count * 4
+//   [12] uint32_t LE  crc32
+// Expected total size: 16 + glyph_count * 4 + glyph_count * 24 = 16 + glyph_count * 28
+const FONT_MAGIC   = 0x464D;
+const FONT_VERSION = 1;
+const FONT_HEADER_SZ      = 16;
+const FONT_INDEX_ENTRY_SZ =  4;
+const FONT_GLYPH_BYTES    = 24;
+const FONT_MAX_BYTES      = 65536;  // hard upper limit (~2340 glyphs max)
+
+function validateFontData(raw) {
+  if (raw.length < FONT_HEADER_SZ)
+    return `文件过小（${raw.length} 字节），不是有效的字体文件`;
+  const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+  const magic = view.getUint16(0, true);
+  if (magic !== FONT_MAGIC)
+    return `Magic 错误：期望 0x464D ("FM")，实际 0x${magic.toString(16).toUpperCase().padStart(4,'0')}。请确认选择的是字体 .bin 文件，而非固件或备份文件`;
+  const version = raw[2];
+  if (version !== FONT_VERSION)
+    return `版本不匹配：期望 ${FONT_VERSION}，实际 ${version}`;
+  const glyphCount = view.getUint16(4, true);
+  if (glyphCount === 0)
+    return '字形数量为 0，文件无效';
+  const expectedSize = FONT_HEADER_SZ + glyphCount * FONT_INDEX_ENTRY_SZ + glyphCount * FONT_GLYPH_BYTES;
+  if (raw.length !== expectedSize)
+    return `文件大小不匹配：${glyphCount} 个字形期望 ${expectedSize} 字节，实际 ${raw.length} 字节`;
+  if (raw.length > FONT_MAX_BYTES)
+    return `文件过大（${raw.length} 字节 > ${FONT_MAX_BYTES} 字节上限）`;
+  return null; // OK
+}
+
 elFile.addEventListener('change', async e => {
   const f = e.target.files[0];
   if (!f) { fontData = null; elFileInfo.textContent = '请选择 .bin 字体文件'; elFileInfo.className = 'file-info'; elFlash.disabled = true; return; }
 
   const raw = new Uint8Array(await f.arrayBuffer());
+
+  // Validate font header before accepting the file
+  const err = validateFontData(raw);
+  if (err) {
+    fontData = null;
+    elFileInfo.className = 'file-info error';
+    elFileInfo.textContent = `⚠ ${err}`;
+    elFlash.disabled = true;
+    return;
+  }
+
   // Pad to 8-byte boundary (required by EEPROM write granularity)
   const rem = raw.length % 8;
   if (rem) {
