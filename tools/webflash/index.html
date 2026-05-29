@@ -41,11 +41,20 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .l-head{color:#58a6ff;font-weight:bold}
 .l-warn{color:#d2a679}
 .unsupported{background:#2d1a1a;border:1px solid #f85149;border-radius:8px;padding:1rem 1.25rem;margin:.75rem 0;display:none}
+.notice{background:#161b22;border:1px solid #30363d;border-left:3px solid #58a6ff;border-radius:6px;padding:.75rem 1rem;margin:.75rem 0;font-size:.83rem;color:#8b949e;line-height:1.6}
+.notice a{color:#58a6ff;text-decoration:none}
+.notice a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
 <h1>八方固件 · CJK 字体刷写</h1>
 <p class="sub">适用于泉盛 UV-K5/K6 V3 · UV-K1 · UV-K1(8)　&nbsp;需要 Chrome 或 Edge 89+</p>
+
+<div class="notice">
+  此工具仅用于刷写 CJK 中文字体。<br>
+  如需 <strong>刷写固件</strong> 或 <strong>保存 / 恢复校准数据（EEPROM 备份）</strong>，请使用
+  <a href="https://armel.github.io/uvtools2/" target="_blank" rel="noopener">uvtools2</a>。
+</div>
 
 <div class="unsupported" id="no-serial">
   ⚠️ 当前浏览器不支持 WebSerial API。请使用 <strong>Chrome</strong> 或 <strong>Edge</strong> 89 以上版本，并通过 <strong>HTTPS</strong> 或 <strong>localhost</strong> 打开此页面。
