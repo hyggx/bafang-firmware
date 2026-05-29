@@ -1604,7 +1604,7 @@ void UI_DisplayMain(void)
                         displayStr = "ALL";
                     } 
                     else if (countList == 0) {
-                        displayStr = "OFF";
+                        displayStr = NULL;  // not in any list — show nothing
                     } 
                     else {
                         // List 1 to MR_CHANNELS_LIST
@@ -1627,13 +1627,15 @@ void UI_DisplayMain(void)
                     xStart = 117;
                 }
 
-                GUI_DisplaySmallest(displayStr, xStart + 2, line == 0 ? 1 : 33, false, true);
+                if (displayStr != NULL) {
+                    GUI_DisplaySmallest(displayStr, xStart + 2, line == 0 ? 1 : 33, false, true);
 
-                gFrameBuffer[line][xStart] ^= 0x3E;
-                for (uint8_t x = xStart + 1; x < 127; x++) {
-                    gFrameBuffer[line][x] ^= 0x7F;
+                    gFrameBuffer[line][xStart] ^= 0x3E;
+                    for (uint8_t x = xStart + 1; x < 127; x++) {
+                        gFrameBuffer[line][x] ^= 0x7F;
+                    }
+                    gFrameBuffer[line][127] ^= 0x3E;
                 }
-                gFrameBuffer[line][127] ^= 0x3E;
 
                 #ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
                 {
