@@ -1848,10 +1848,7 @@ void UI_DisplayMain(void)
 #endif
                 if (code_type < ARRAY_SIZE(code_list))
                     s = code_list[code_type];
-#ifdef ENABLE_FEAT_F4HWN
-                if(gCurrentFunction != FUNCTION_TRANSMIT || activeTxVFO != vfo_num)
-                    t = gModulationStr[mod];
-#endif
+                // FM is the default mode — no need to display the label
                 break;
             }
             default:
