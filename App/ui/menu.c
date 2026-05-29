@@ -1750,15 +1750,13 @@ void UI_DisplayMenu(void)
             {
                 strcpy(String, SUBV(gSubMenu_OFF_ON[0], gSubMenu_OFF_ON_zh[0]));
             }
-            else if(gSubMenuSelection < 121)
+            else
             {
-                sprintf(String, "%dh:%02dm", (gSubMenuSelection / 60), (gSubMenuSelection % 60));
-                //#if !defined(ENABLE_SPECTRUM) || !defined(ENABLE_FMRADIO)
-                //ST7565_Gauge(4, 1, 120, gSubMenuSelection);
+                const uint8_t mins = gSubMenuSelection * 5;
+                sprintf(String, "%dh:%02dm", mins / 60, mins % 60);
                 gaugeLine = 6;
                 gaugeMin = 1;
-                gaugeMax = 120;
-                //#endif
+                gaugeMax = 24;
             }
             break;
 #endif

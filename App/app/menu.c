@@ -393,7 +393,7 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 
 #ifdef ENABLE_FEAT_F4HWN_SLEEP
         case MENU_SET_OFF:
-            *pMax = 120;
+            *pMax = 24;  // 0..24 steps × 5 min = 0..120 min
             break;
 #endif
 
@@ -963,7 +963,7 @@ void MENU_AcceptSetting(void)
 
 #ifdef ENABLE_FEAT_F4HWN_SLEEP 
         case MENU_SET_OFF:
-            gSetting_set_off = gSubMenuSelection;
+            gSetting_set_off = gSubMenuSelection * 5;
             break;
 #endif
 
@@ -1428,7 +1428,7 @@ void MENU_ShowCurrentSetting(void)
 
 #ifdef ENABLE_FEAT_F4HWN_SLEEP 
         case MENU_SET_OFF:
-            gSubMenuSelection = gSetting_set_off;
+            gSubMenuSelection = gSetting_set_off / 5;
             break;
 #endif
 
